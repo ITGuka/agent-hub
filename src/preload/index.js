@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 const on = (channel) => (cb) => {
   const h = (_e, ...args) => cb(...args)
@@ -32,6 +32,24 @@ contextBridge.exposeInMainWorld('api', {
     reveal: (dir) => ipcRenderer.invoke('projects:reveal', dir)
   },
   app: { info: () => ipcRenderer.invoke('app:info') },
+  chat: {
+    start: (opts) => ipcRenderer.invoke('chat:start', opts),
+    stop: (runId) => ipcRenderer.invoke('chat:stop', runId),
+    onEvent: on('chat:event')
+  },
+  sessions: {
+    list: () => ipcRenderer.invoke('sessions:list'),
+    get: (id) => ipcRenderer.invoke('sessions:get', id),
+    save: (s) => ipcRenderer.invoke('sessions:save', s),
+    remove: (id) => ipcRenderer.invoke('sessions:remove', id),
+    search: (q) => ipcRenderer.invoke('sessions:search', q),
+    export: (id) => ipcRenderer.invoke('sessions:export', id)
+  },
+  files: {
+    saveText: (name, text) => ipcRenderer.invoke('file:saveText', name, text),
+    // Electron 32+ removed File.path; this is the supported replacement.
+    pathFor: (file) => webUtils.getPathForFile(file)
+  },
   update: {
     state: () => ipcRenderer.invoke('update:state'),
     check: () => ipcRenderer.invoke('update:check'),

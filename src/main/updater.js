@@ -37,7 +37,16 @@ export function initUpdater(sendToWindow) {
     return autoUpdater.checkForUpdates().catch(() => {})
   }
 
-  // Check shortly after start, then every 4 hours.
-  setTimeout(check, 5000)
-  setInterval(check, 4 * 60 * 60 * 1000)
+  // Check shortly after start, every 30 minutes, and when the window regains
+  // focus (at most every 10 minutes), so a new release shows up on its own.
+  let last = 0
+  const maybeCheck = () => {
+    if (Date.now() - last < 10 * 60 * 1000) return
+    if (['downloading', 'ready', 'checking'].includes(state.status)) return
+    last = Date.now()
+    check()
+  }
+  setTimeout(maybeCheck, 4000)
+  setInterval(maybeCheck, 30 * 60 * 1000)
+  app.on('browser-window-focus', maybeCheck)
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { LangContext, useT } from './i18n'
 import TerminalView from './components/TerminalView'
+import ChatView from './components/ChatView'
 import Settings from './components/Settings'
 import { useUpdate, UpdateCard } from './components/Update'
 
@@ -16,12 +17,14 @@ export default function App() {
   const [activeKey, setActiveKey] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
   const [appInfo, setAppInfo] = useState({ version: '' })
+  const [sessions, setSessions] = useState([])
   const update = useUpdate()
 
   const runDetect = useCallback(() => {
     setDetect(null)
     window.api.agents.detect().then(setDetect)
   }, [])
+  const refreshSessions = useCallback(() => window.api.sessions.list().then(setSessions), [])
 
   useEffect(() => {
     window.api.settings.get().then((s) => {
@@ -30,8 +33,9 @@ export default function App() {
     })
     window.api.agents.list().then(setAgents)
     window.api.app.info().then(setAppInfo)
+    refreshSessions()
     runDetect()
-  }, [runDetect])
+  }, [runDetect, refreshSessions])
 
   if (!settings) return null
 
@@ -42,9 +46,30 @@ export default function App() {
       kind === 'install:node'
         ? 'Node.js'
         : kind.startsWith('install:')
-      ? `npm · ${agents[kind.slice(8)].name}`
-      : `${a ? a.name : 'Terminal'}${cwd ? ' · ' + baseName(cwd) : ''}`
-    setTabs((ts) => [...ts, { key, kind, cwd, title, status: 'starting', gen: 0 }])
+          ? `npm · ${agents[kind.slice(8)].name}`
+          : `${a ? a.name : 'Terminal'}${cwd ? ' · ' + baseName(cwd) : ''}`
+    setTabs((ts) => [...ts, { key, type: 'term', kind, cwd, title, status: 'starting', gen: 0 }])
+    setActiveKey(key)
+  }
+
+  const openChat = (agent, session = null) => {
+    if (session) {
+      const existing = tabs.find((t) => t.type === 'chat' && t.sessionId === session.id)
+      if (existing) return setActiveKey(existing.key)
+    }
+    const key = tabSeq++
+    const cwd = session ? session.cwd : project
+    setTabs((ts) => [
+      ...ts,
+      {
+        key,
+        type: 'chat',
+        agent,
+        cwd,
+        sessionId: session?.id || null,
+        title: session?.title || `${agents[agent].name}${cwd ? ' · ' + baseName(cwd) : ''}`
+      }
+    ])
     setActiveKey(key)
   }
 
@@ -59,13 +84,10 @@ export default function App() {
 
   const patchTab = (key, patch) => setTabs((ts) => ts.map((t) => (t.key === key ? { ...t, ...patch } : t)))
 
-  const install = (agentId) => {
-    openTab('install:' + agentId, null)
-  }
+  const install = (agentId) => openTab('install:' + agentId, null)
 
   const onTabStatus = (tab, status) => {
     patchTab(tab.key, { status })
-    // Re-check installs once the npm tab finishes.
     if (status === 'exited' && tab.kind.startsWith('install:')) runDetect()
   }
 
@@ -80,32 +102,43 @@ export default function App() {
           project={project}
           setProject={setProject}
           openTab={openTab}
+          openChat={openChat}
           install={install}
           openSettings={() => setShowSettings(true)}
           update={update}
+          sessions={sessions}
+          refreshSessions={refreshSessions}
         />
         <main className="main">
           {tabs.length > 0 && (
-            <TabBar
-              tabs={tabs}
-              agents={agents}
-              activeKey={activeKey}
-              setActiveKey={setActiveKey}
-              closeTab={closeTab}
-            />
+            <TabBar tabs={tabs} agents={agents} activeKey={activeKey} setActiveKey={setActiveKey} closeTab={closeTab} />
           )}
           <div className="terms">
-            {tabs.map((tab) => (
-              <TerminalView
-                key={tab.key + ':' + tab.gen}
-                tab={tab}
-                active={tab.key === activeKey}
-                onStatus={(s) => onTabStatus(tab, s)}
-                onRestart={() => patchTab(tab.key, { gen: tab.gen + 1, status: 'starting' })}
-              />
-            ))}
+            {tabs.map((tab) =>
+              tab.type === 'chat' ? (
+                <ChatView
+                  key={tab.key}
+                  tab={tab}
+                  active={tab.key === activeKey}
+                  agents={agents}
+                  settings={settings}
+                  setSettings={setSettings}
+                  onSession={(s) => patchTab(tab.key, { sessionId: s.id, ...(s.title ? { title: s.title } : {}) })}
+                  onSaved={refreshSessions}
+                />
+              ) : (
+                <TerminalView
+                  key={tab.key + ':' + tab.gen}
+                  tab={tab}
+                  active={tab.key === activeKey}
+                  templates={settings.templates}
+                  onStatus={(s) => onTabStatus(tab, s)}
+                  onRestart={() => patchTab(tab.key, { gen: tab.gen + 1, status: 'starting' })}
+                />
+              )
+            )}
             {tabs.length === 0 && (
-              <Welcome agents={agents} detect={detect} project={project} openTab={openTab} install={install} />
+              <Welcome agents={agents} detect={detect} project={project} openTab={openTab} openChat={openChat} install={install} />
             )}
           </div>
         </main>
@@ -147,7 +180,70 @@ function StatusDot({ info }) {
   return <span className={cls} />
 }
 
-function Sidebar({ settings, setSettings, agents, detect, project, setProject, openTab, install, openSettings, update }) {
+function timeAgo(ts, lang) {
+  const d = (Date.now() - ts) / 1000
+  const ka = lang === 'ka'
+  if (d < 60) return ka ? 'ახლა' : 'now'
+  if (d < 3600) return Math.floor(d / 60) + (ka ? ' წთ' : 'm')
+  if (d < 86400) return Math.floor(d / 3600) + (ka ? ' სთ' : 'h')
+  return new Date(ts).toLocaleDateString()
+}
+
+function History({ sessions, agents, project, openChat, refreshSessions, lang }) {
+  const t = useT()
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState(null)
+
+  useEffect(() => {
+    if (!query.trim()) return setResults(null)
+    const h = setTimeout(() => window.api.sessions.search(query).then(setResults), 200)
+    return () => clearTimeout(h)
+  }, [query, sessions])
+
+  const items = results ?? sessions.filter((s) => !project || s.cwd === project).slice(0, 40)
+
+  const remove = async (e, id) => {
+    e.stopPropagation()
+    if (!confirm(t('confirmDelete'))) return
+    await window.api.sessions.remove(id)
+    refreshSessions()
+  }
+
+  return (
+    <section className="history">
+      <h3>{t('history')}</h3>
+      <input
+        className="search"
+        placeholder={'⌕ ' + t('searchChats')}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {items.length === 0 && <div className="muted small pad">{results ? t('noResults') : t('noHistory')}</div>}
+      {items.map((s) => (
+        <div
+          key={s.id}
+          className="history-item"
+          style={{ '--agent': agents[s.agent]?.color }}
+          onClick={() => openChat(s.agent, s)}
+          title={`${agents[s.agent]?.name} · ${s.cwd}`}
+        >
+          <span className="tab-color" />
+          <div className="grow">
+            <div className="ellipsis">{s.title || '—'}</div>
+            {s.snippet && s.snippet !== s.title && <div className="snippet ellipsis">{s.snippet}</div>}
+          </div>
+          <span className="muted small when">{timeAgo(s.updatedAt, lang)}</span>
+          <button className="x" title={t('remove')} onClick={(e) => remove(e, s.id)}>
+            ×
+          </button>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function Sidebar(props) {
+  const { settings, setSettings, agents, detect, project, setProject, openTab, openChat, install, openSettings, update } = props
   const t = useT()
   const pick = async () => {
     const r = await window.api.projects.pick()
@@ -176,6 +272,7 @@ function Sidebar({ settings, setSettings, agents, detect, project, setProject, o
   return (
     <aside className="sidebar">
       <div className="brand">{t('appName')}</div>
+      <UpdateCard state={update} />
 
       <section>
         <h3>{t('project')}</h3>
@@ -183,7 +280,9 @@ function Sidebar({ settings, setSettings, agents, detect, project, setProject, o
           {project ? (
             <>
               <strong>{baseName(project)}</strong>
-              <small><bdi>{project}</bdi></small>
+              <small>
+                <bdi>{project}</bdi>
+              </small>
             </>
           ) : (
             <small>{t('noProject')}</small>
@@ -199,61 +298,64 @@ function Sidebar({ settings, setSettings, agents, detect, project, setProject, o
             </button>
           )}
         </div>
+        {settings.recentProjects.length > 1 && (
+          <div className="recent">
+            {settings.recentProjects
+              .filter((d) => d !== project)
+              .map((dir) => (
+                <div key={dir} className="recent-item" onClick={() => openRecent(dir)} title={dir}>
+                  <span className="grow ellipsis">{baseName(dir)}</span>
+                  <button className="x" title={t('remove')} onClick={(e) => remove(e, dir)}>
+                    ×
+                  </button>
+                </div>
+              ))}
+          </div>
+        )}
       </section>
 
       <section>
         <h3>{t('agents')}</h3>
         {Object.values(agents).map((a) => {
           const info = detect?.agents[a.id]
+          const ready = !info || info.installed
           return (
-            <div key={a.id} className="agent-row">
-              <button
-                className="agent-btn"
-                style={{ '--agent': a.color }}
-                disabled={info && !info.installed}
-                onClick={() => openTab(a.id)}
-                title={info?.version ? `${a.name} ${info.version}` : a.name}
-              >
+            <div key={a.id} className="agent-row" style={{ '--agent': a.color }}>
+              <div className={'agent-name' + (ready ? '' : ' off')} title={info?.version ? `${a.name} ${info.version}` : a.name}>
                 <StatusDot info={info} />
-                <span className="grow">{a.name}</span>
-                <span className="plus">+</span>
-              </button>
-              {info && !info.installed && (
+                <span className="grow ellipsis">{a.name}</span>
+              </div>
+              {info && !info.installed ? (
                 <button className="btn small" disabled={!detect.npm} onClick={() => install(a.id)}>
                   {t('install')}
                 </button>
+              ) : (
+                <>
+                  <button className="icon-btn" disabled={!info} title={t('newChat')} onClick={() => openChat(a.id)}>
+                    💬
+                  </button>
+                  <button className="icon-btn" disabled={!info} title={t('newTerminal')} onClick={() => openTab(a.id)}>
+                    ›_
+                  </button>
+                </>
               )}
             </div>
           )
         })}
         {detect && !detect.npm && <NodeMissing install={install} small />}
-        <button className="agent-btn" style={{ '--agent': '#8a8f98' }} onClick={() => openTab('shell')}>
-          <span className="dot ok" />
-          <span className="grow">{t('shell')}</span>
-          <span className="plus">+</span>
-        </button>
+        <div className="agent-row" style={{ '--agent': '#8a8f98' }}>
+          <div className="agent-name">
+            <span className="dot ok" />
+            <span className="grow">{t('shell')}</span>
+          </div>
+          <button className="icon-btn" title={t('newTerminal')} onClick={() => openTab('shell')}>
+            ›_
+          </button>
+        </div>
       </section>
 
-      {settings.recentProjects.length > 0 && (
-        <section className="recent">
-          <h3>{t('recent')}</h3>
-          {settings.recentProjects.map((dir) => (
-            <div
-              key={dir}
-              className={'recent-item' + (dir === project ? ' active' : '')}
-              onClick={() => openRecent(dir)}
-              title={dir}
-            >
-              <span className="grow ellipsis">{baseName(dir)}</span>
-              <button className="x" title={t('remove')} onClick={(e) => remove(e, dir)}>
-                ×
-              </button>
-            </div>
-          ))}
-        </section>
-      )}
+      <History {...props} lang={settings.language} />
 
-      <UpdateCard state={update} />
       <div className="sidebar-foot">
         <button className="btn grow" onClick={openSettings}>
           ⚙ {t('settings')}
@@ -267,7 +369,7 @@ function TabBar({ tabs, agents, activeKey, setActiveKey, closeTab }) {
   return (
     <div className="tabbar">
       {tabs.map((tab) => {
-        const color = agents[tab.kind]?.color || '#8a8f98'
+        const color = agents[tab.type === 'chat' ? tab.agent : tab.kind]?.color || '#8a8f98'
         return (
           <div
             key={tab.key}
@@ -277,7 +379,7 @@ function TabBar({ tabs, agents, activeKey, setActiveKey, closeTab }) {
             onMouseDown={(e) => e.button === 1 && closeTab(tab.key)}
             title={tab.cwd || ''}
           >
-            <span className="tab-color" />
+            <span className="tab-icon">{tab.type === 'chat' ? '💬' : '›_'}</span>
             <span className="ellipsis">{tab.title}</span>
             <button
               className="x"
@@ -295,7 +397,7 @@ function TabBar({ tabs, agents, activeKey, setActiveKey, closeTab }) {
   )
 }
 
-function Welcome({ agents, detect, project, openTab, install }) {
+function Welcome({ agents, detect, project, openTab, openChat, install }) {
   const t = useT()
   return (
     <div className="welcome">
@@ -319,9 +421,14 @@ function Welcome({ agents, detect, project, openTab, install }) {
                   {t('install')}
                 </button>
               ) : (
-                <button className="btn primary agent-bg" onClick={() => openTab(a.id)} disabled={!info}>
-                  {t('start')}
-                </button>
+                <div className="row">
+                  <button className="btn primary agent-bg grow" onClick={() => openChat(a.id)} disabled={!info}>
+                    💬 {t('chat')}
+                  </button>
+                  <button className="btn grow" onClick={() => openTab(a.id)} disabled={!info}>
+                    ›_ {t('terminal')}
+                  </button>
+                </div>
               )}
             </div>
           )

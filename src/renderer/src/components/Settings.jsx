@@ -7,6 +7,12 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
   const [keys, setKeys] = useState({})
   const [args, setArgs] = useState(settings.agentArgs)
   const [checks, setChecks] = useState({})
+  const [templates, setTemplatesState] = useState(settings.templates || [])
+  // Edit locally; persist when save !== false (on blur, add, delete).
+  const setTemplates = async (list, save = true) => {
+    setTemplatesState(list)
+    if (save) setSettings(await window.api.settings.update({ templates: list }))
+  }
 
   const testKey = async (id) => {
     setChecks((c) => ({ ...c, [id]: { pending: true } }))
@@ -71,10 +77,20 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
                     <td>{a.name}</td>
                     <td className="muted" title={info?.path || ''}>
                       {!info ? t('checking') : info.installed ? `${info.version || t('installed')}` : t('notInstalled')}
+                      {info?.installed && info.latest && (
+                        <span className={'small ' + (info.updateAvailable ? 'update-hint' : '')}>
+                          {' '}
+                          · {info.updateAvailable ? `${t('latestIs')} ${info.latest}` : t('upToDate')}
+                        </span>
+                      )}
                     </td>
                     <td className="right">
                       {info && (
-                        <button className="btn small" disabled={!detect.npm} onClick={() => install(a.id)}>
+                        <button
+                          className={'btn small' + (info.installed && info.updateAvailable ? ' primary' : '')}
+                          disabled={!detect.npm || (info.installed && !info.updateAvailable)}
+                          onClick={() => install(a.id)}
+                        >
                           {info.installed ? t('update') : t('install')}
                         </button>
                       )}
@@ -144,6 +160,50 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
                 value={args[a.id] || ''}
                 onChange={(e) => setArgs((s) => ({ ...s, [a.id]: e.target.value }))}
                 onBlur={saveArgs}
+              />
+            </div>
+          ))}
+        </section>
+
+        <section>
+          <h3>{t('chatMode')}</h3>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={!!settings.chatAutoApprove}
+              onChange={async (e) => setSettings(await window.api.settings.update({ chatAutoApprove: e.target.checked }))}
+            />
+            {t('autoApprove')}
+          </label>
+          <p className="muted small">{t('autoApproveHint')}</p>
+        </section>
+
+        <section>
+          <div className="row between">
+            <h3>{t('templates')}</h3>
+            <button className="btn small" onClick={() => setTemplates([...templates, { name: t('newTemplate'), text: '' }])}>
+              + {t('add')}
+            </button>
+          </div>
+          {templates.map((tp, i) => (
+            <div key={i} className="template-row">
+              <div className="row">
+                <input
+                  className="grow"
+                  value={tp.name}
+                  onChange={(e) => setTemplates(templates.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)), false)}
+                  onBlur={() => setTemplates(templates)}
+                />
+                <button className="x" title={t('remove')} onClick={() => setTemplates(templates.filter((_, j) => j !== i))}>
+                  ×
+                </button>
+              </div>
+              <textarea
+                rows={2}
+                value={tp.text}
+                placeholder={t('templateText')}
+                onChange={(e) => setTemplates(templates.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)), false)}
+                onBlur={() => setTemplates(templates)}
               />
             </div>
           ))}

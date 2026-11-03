@@ -25,13 +25,42 @@ async function version(command, env) {
   return m ? m[0] : r.out.split(/\r?\n/)[0].slice(0, 40)
 }
 
+// Latest published version from the npm registry (null if offline).
+async function latestVersion(pkg) {
+  try {
+    const r = await fetch(`https://registry.npmjs.org/${pkg}/latest`, { signal: AbortSignal.timeout(8000) })
+    return r.ok ? (await r.json()).version : null
+  } catch {
+    return null
+  }
+}
+
+// true if a < b (numeric x.y.z, prerelease tags ignored)
+export function isOlder(a, b) {
+  const pa = String(a).split(/[.+-]/).slice(0, 3).map(Number)
+  const pb = String(b).split(/[.+-]/).slice(0, 3).map(Number)
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) < (pb[i] || 0)
+  }
+  return false
+}
+
 export async function detectAll() {
   const env = await getEnv(true)
   const [node, npm] = await Promise.all([whichPath('node', env), whichPath('npm', env)])
   const agents = await Promise.all(
     Object.values(AGENTS).map(async (a) => {
-      const p = await whichPath(a.command, env)
-      return { id: a.id, installed: !!p, path: p, version: p ? await version(a.command, env) : null }
+      const [p, latest] = await Promise.all([whichPath(a.command, env), latestVersion(a.npmPackage)])
+      const v = p ? await version(a.command, env) : null
+      return {
+        id: a.id,
+        installed: !!p,
+        path: p,
+        version: v,
+        latest,
+        // Unknown versions count as updatable so the button is never wrongly hidden.
+        updateAvailable: !!p && (!v || !latest || !/^\d/.test(v) || isOlder(v, latest))
+      }
     })
   )
   return {

@@ -6,6 +6,12 @@ const DEFAULTS = {
   language: 'ka',
   recentProjects: [],
   agentArgs: { claude: '', codex: '', gemini: '' },
+  chatAutoApprove: false,
+  templates: [
+    { name: 'Code review', text: 'Review the uncommitted changes in this project. List bugs and risky spots, most severe first.' },
+    { name: 'Explain project', text: 'Explain the structure of this project: main parts, how they connect, and where to start reading.' },
+    { name: 'Write tests', text: 'Write tests for the most important untested code in this project and run them.' }
+  ],
   secrets: {} // agentId -> encrypted base64 API key
 }
 
@@ -37,7 +43,7 @@ export function publicSettings() {
 
 export function update(patch) {
   const s = load()
-  for (const key of ['language', 'agentArgs']) if (key in patch) s[key] = patch[key]
+  for (const key of ['language', 'agentArgs', 'chatAutoApprove', 'templates']) if (key in patch) s[key] = patch[key]
   save()
   return publicSettings()
 }

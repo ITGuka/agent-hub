@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { register } from '../termBus'
 import { useT } from '../i18n'
+import TemplatesMenu from './TemplatesMenu'
 
 const theme = {
   background: '#0f1114',
@@ -12,7 +13,7 @@ const theme = {
   selectionBackground: '#3a4150'
 }
 
-export default function TerminalView({ tab, active, onStatus, onRestart }) {
+export default function TerminalView({ tab, active, onStatus, onRestart, templates }) {
   const t = useT()
   const host = useRef(null)
   const fitRef = useRef(null)
@@ -116,8 +117,40 @@ export default function TerminalView({ tab, active, onStatus, onRestart }) {
       })
   }, [active])
 
+  const paste = (text) => {
+    if (idRef.current) window.api.term.write(idRef.current, text)
+    termRef.current?.focus()
+  }
+
+  const exportLog = () => {
+    const buf = termRef.current?.buffer.active
+    if (!buf) return
+    const lines = []
+    for (let i = 0; i < buf.length; i++) lines.push(buf.getLine(i)?.translateToString(true) ?? '')
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
+    window.api.files.saveText(tab.title, '```\n' + lines.join('\n') + '\n```\n')
+  }
+
+  const onDrop = (e) => {
+    e.preventDefault()
+    const paths = [...e.dataTransfer.files].map((f) => window.api.files.pathFor(f)).filter(Boolean)
+    if (paths.length) paste(paths.map((p) => (/\s/.test(p) ? `"${p}"` : p)).join(' ') + ' ')
+  }
+
   return (
-    <div className="term-wrap" style={{ display: active ? 'flex' : 'none' }}>
+    <div
+      className="term-wrap"
+      style={{ display: active ? 'flex' : 'none' }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={onDrop}
+    >
+      <div className="toolbar">
+        <span className="tb-title ellipsis muted">{tab.cwd}</span>
+        <TemplatesMenu templates={templates || []} onPick={paste} />
+        <button className="btn small" onClick={exportLog}>
+          ⤓ {t('export')}
+        </button>
+      </div>
       <div className="term" ref={host} />
       {exitCode !== null && (
         <div className="term-exit">

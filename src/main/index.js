@@ -10,6 +10,8 @@ import { detectAll } from './detect'
 import { getEnv } from './env'
 import { initUpdater } from './updater'
 import { checkKey } from './keycheck'
+import * as chat from './chat'
+import * as sessions from './sessions'
 
 const isWin = process.platform === 'win32'
 const terms = new Map() // id -> IPty
@@ -30,6 +32,7 @@ function killAll() {
     } catch {}
   }
   terms.clear()
+  chat.stopAll()
 }
 
 function createWindow() {
@@ -50,6 +53,13 @@ function createWindow() {
   win.on('closed', () => {
     killAll()
     win = null
+  })
+  // Never navigate the app window away (e.g. a link clicked in a chat answer).
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url !== win.webContents.getURL()) {
+      e.preventDefault()
+      if (/^https?:/.test(url)) shell.openExternal(url)
+    }
   })
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url)
@@ -166,6 +176,35 @@ ipcMain.handle('projects:open', (_e, dir) =>
 )
 ipcMain.handle('projects:remove', (_e, dir) => store.removeRecentProject(dir))
 ipcMain.handle('projects:reveal', (_e, dir) => shell.openPath(dir))
+ipcMain.handle('chat:start', (_e, opts) => chat.startRun(send, opts))
+ipcMain.handle('chat:stop', (_e, runId) => chat.stopRun(runId))
+
+ipcMain.handle('sessions:list', () => sessions.list())
+ipcMain.handle('sessions:get', (_e, id) => sessions.get(id))
+ipcMain.handle('sessions:save', (_e, s) => sessions.save(s))
+ipcMain.handle('sessions:remove', (_e, id) => sessions.remove(id))
+ipcMain.handle('sessions:search', (_e, q) => sessions.search(q))
+ipcMain.handle('sessions:export', async (_e, id) => {
+  const s = sessions.get(id)
+  if (!s) return false
+  return saveText(s.title, sessions.toMarkdown(s, AGENTS[s.agent]?.name || s.agent))
+})
+ipcMain.handle('file:saveText', (_e, name, text) => saveText(name, text))
+
+async function saveText(name, text) {
+  const safe = (name || 'export').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80) || 'export'
+  const r = await dialog.showSaveDialog(win, {
+    defaultPath: safe + '.md',
+    filters: [
+      { name: 'Markdown', extensions: ['md'] },
+      { name: 'Text', extensions: ['txt'] }
+    ]
+  })
+  if (r.canceled || !r.filePath) return false
+  fs.writeFileSync(r.filePath, text, 'utf8')
+  return true
+}
+
 ipcMain.handle('app:info', () => ({ version: app.getVersion(), platform: process.platform }))
 
 app.whenReady().then(() => {

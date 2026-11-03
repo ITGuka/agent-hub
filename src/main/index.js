@@ -2,10 +2,12 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
+import { execFile } from 'node:child_process'
 import * as pty from 'node-pty'
 import { AGENTS } from './agents'
 import * as store from './store'
 import { detectAll } from './detect'
+import { getEnv } from './env'
 
 const isWin = process.platform === 'win32'
 const terms = new Map() // id -> IPty
@@ -51,14 +53,22 @@ function commandFor(kind) {
   return { cmd: a.command, args: splitArgs(store.load().agentArgs[kind]) }
 }
 
-function spawnTerm({ kind, cwd, cols, rows }) {
-  const env = { ...process.env, FORCE_COLOR: '1', COLORTERM: 'truecolor' }
+async function hasNpm(env) {
+  return new Promise((r) =>
+    execFile(isWin ? 'where' : 'which', ['npm'], { env, shell: isWin, windowsHide: true }, (err) => r(!err))
+  )
+}
+
+async function spawnTerm({ kind, cwd, cols, rows }) {
+  const env = { ...(await getEnv()), FORCE_COLOR: '1', COLORTERM: 'truecolor' }
   for (const a of Object.values(AGENTS)) {
     const key = store.getSecret(a.id)
     if (key) env[a.keyEnv] = key
   }
   const workdir = cwd && fs.existsSync(cwd) ? cwd : os.homedir()
   const c = commandFor(kind)
+  if (c && kind.startsWith('install:') && !(await hasNpm(env)))
+    throw new Error('npm not found. Install Node.js 20+ from https://nodejs.org, then press "Check again" in Settings.')
   let file, args
   if (isWin) {
     file = process.env.COMSPEC || 'cmd.exe'

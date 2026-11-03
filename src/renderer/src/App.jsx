@@ -197,13 +197,21 @@ function Sidebar({ settings, setSettings, agents, detect, project, setProject, o
                 <span className="plus">+</span>
               </button>
               {info && !info.installed && (
-                <button className="btn small" onClick={() => install(a.id)}>
+                <button className="btn small" disabled={!detect.npm} onClick={() => install(a.id)}>
                   {t('install')}
                 </button>
               )}
             </div>
           )
         })}
+        {detect && !detect.npm && (
+          <p className="warn small">
+            {t('nodeMissing')}{' '}
+            <a href="https://nodejs.org" target="_blank" rel="noreferrer">
+              nodejs.org
+            </a>
+          </p>
+        )}
         <button className="agent-btn" style={{ '--agent': '#8a8f98' }} onClick={() => openTab('shell')}>
           <span className="dot ok" />
           <span className="grow">{t('shell')}</span>

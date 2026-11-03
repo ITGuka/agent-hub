@@ -48,7 +48,9 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
             <tbody>
               <tr>
                 <td>Node.js</td>
-                <td className="muted">{!detect ? t('checking') : detect.node || t('notInstalled')}</td>
+                <td className="muted" title={detect?.nodePath || ''}>
+                  {!detect ? t('checking') : detect.node || t('notInstalled')}
+                </td>
                 <td />
               </tr>
               {Object.values(agents).map((a) => {
@@ -56,7 +58,7 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
                 return (
                   <tr key={a.id}>
                     <td>{a.name}</td>
-                    <td className="muted">
+                    <td className="muted" title={info?.path || ''}>
                       {!info ? t('checking') : info.installed ? `${info.version || t('installed')}` : t('notInstalled')}
                     </td>
                     <td className="right">

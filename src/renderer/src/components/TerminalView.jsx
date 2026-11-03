@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebglAddon } from '@xterm/addon-webgl'
 import { register } from '../termBus'
 import { useT } from '../i18n'
 
@@ -15,6 +16,7 @@ export default function TerminalView({ tab, active, onStatus, onRestart }) {
   const t = useT()
   const host = useRef(null)
   const fitRef = useRef(null)
+  const termRef = useRef(null)
   const idRef = useRef(null)
   const [exitCode, setExitCode] = useState(null)
 
@@ -22,6 +24,7 @@ export default function TerminalView({ tab, active, onStatus, onRestart }) {
     const term = new Terminal({
       fontFamily: '"Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace',
       fontSize: 13,
+      customGlyphs: true,
       cursorBlink: true,
       scrollback: 10000,
       allowProposedApi: true,
@@ -30,7 +33,15 @@ export default function TerminalView({ tab, active, onStatus, onRestart }) {
     const fit = new FitAddon()
     term.loadAddon(fit)
     term.open(host.current)
+    // WebGL draws cell backgrounds without the hairline gaps of the DOM renderer
+    // (visible as stripes in TUIs like Gemini CLI). Fall back to DOM if unavailable.
+    try {
+      const webgl = new WebglAddon()
+      webgl.onContextLoss(() => webgl.dispose())
+      term.loadAddon(webgl)
+    } catch {}
     fitRef.current = fit
+    termRef.current = term
     try {
       fit.fit()
     } catch {}
@@ -96,11 +107,13 @@ export default function TerminalView({ tab, active, onStatus, onRestart }) {
   }, [])
 
   useEffect(() => {
-    if (active) requestAnimationFrame(() => {
-      try {
-        fitRef.current?.fit()
-      } catch {}
-    })
+    if (active)
+      requestAnimationFrame(() => {
+        try {
+          fitRef.current?.fit()
+        } catch {}
+        termRef.current?.focus()
+      })
   }, [active])
 
   return (

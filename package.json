@@ -1,7 +1,7 @@
 {
   "name": "agent-hub",
   "productName": "Agent Hub",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Desktop app to run Claude Code, Codex and Gemini CLI agents",
   "main": "out/main/index.js",
   "author": "ITGuka",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
     "electron-updater": "^6.3.9",
     "node-pty": "^1.1.0",

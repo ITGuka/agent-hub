@@ -31,8 +31,11 @@ function winQuote(a) {
 }
 
 // Build the headless command for one turn. The prompt is written to stdin.
-function buildArgs(agent, { resumeId, autoApprove }) {
+function buildArgs(agent, { resumeId, autoApprove, extraDirs = [] }) {
   const extra = splitArgs(store.load().agentArgs[agent])
+  // Folders of files the user dropped into the chat, so the agent may read them
+  // even though they are outside the project (it can't ask for permission here).
+  const dirs = [...new Set(extraDirs.filter((d) => d && fs.existsSync(d)))]
   if (agent === 'claude') {
     return [
       '-p',
@@ -40,7 +43,8 @@ function buildArgs(agent, { resumeId, autoApprove }) {
       '--verbose',
       ...(autoApprove ? ['--dangerously-skip-permissions'] : ['--permission-mode', 'acceptEdits']),
       ...(resumeId ? ['--resume', resumeId] : []),
-      ...extra
+      ...extra,
+      ...dirs.flatMap((d) => ['--add-dir', d])
     ]
   }
   if (agent === 'codex') {
@@ -50,13 +54,17 @@ function buildArgs(agent, { resumeId, autoApprove }) {
       ...(autoApprove ? ['--dangerously-bypass-approvals-and-sandbox'] : ['-c', 'sandbox_mode=workspace-write']),
       ...extra
     ]
-    return resumeId ? ['exec', 'resume', resumeId, ...common, '-'] : ['exec', ...common, '-']
+    // Codex can already read anywhere; --add-dir (write access) exists only for new sessions.
+    return resumeId
+      ? ['exec', 'resume', resumeId, ...common, '-']
+      : ['exec', ...common, ...dirs.flatMap((d) => ['--add-dir', d]), '-']
   }
   if (agent === 'gemini') {
     return [
       '--output-format', 'stream-json',
       ...(autoApprove ? ['--yolo'] : ['--approval-mode', 'auto_edit']),
       ...(resumeId ? ['--resume', resumeId] : []),
+      ...dirs.flatMap((d) => ['--include-directories', d]),
       ...extra,
       '-p', ''
     ]
@@ -158,14 +166,14 @@ function parseGemini(e) {
 const PARSERS = { claude: parseClaude, codex: parseCodex, gemini: parseGemini }
 const tidy = (ev) => (ev.kind === 'error' || ev.kind === 'status' ? { ...ev, text: cleanError(ev.text) } : ev)
 
-export async function startRun(send, { runId, agent, cwd, prompt, resumeId, autoApprove }) {
+export async function startRun(send, { runId, agent, cwd, prompt, resumeId, autoApprove, extraDirs }) {
   if (!AGENTS[agent]) throw new Error('Unknown agent: ' + agent)
   const env = { ...(await getEnv()), NO_COLOR: '1', GEMINI_CLI_TRUST_WORKSPACE: 'true' }
   for (const a of Object.values(AGENTS)) {
     const key = store.getSecret(a.id)
     if (key) env[a.keyEnv] = key
   }
-  const args = buildArgs(agent, { resumeId, autoApprove })
+  const args = buildArgs(agent, { resumeId, autoApprove, extraDirs })
   const cmd = AGENTS[agent].command
   const workdir = cwd && fs.existsSync(cwd) ? cwd : os.homedir()
   const child = isWin

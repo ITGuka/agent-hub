@@ -139,7 +139,8 @@ export default function ChatView({ tab, active, agents, settings, setSettings, o
         cwd: s.cwd,
         prompt: text,
         resumeId: s.agentSessionId,
-        autoApprove: settings.chatAutoApprove
+        autoApprove: settings.chatAutoApprove,
+        extraDirs: s.extraDirs || []
       })
     } catch (err) {
       setSession((cur) => {
@@ -172,6 +173,14 @@ export default function ChatView({ tab, active, agents, settings, setSettings, o
     setDragging(false)
     const paths = [...e.dataTransfer.files].map((f) => window.api.files.pathFor(f)).filter(Boolean)
     if (!paths.length) return
+    // Remember each file's folder so the agent is allowed to read it.
+    const parent = (p) => {
+      const d = p.replace(/[\\/][^\\/]*$/, '')
+      return /^[A-Za-z]:$/.test(d) ? d + '\\' : d || '/'
+    }
+    const outside = paths.map(parent).filter((d) => !session.cwd || !d.toLowerCase().startsWith(session.cwd.toLowerCase()))
+    if (outside.length)
+      setSession((cur) => ({ ...cur, extraDirs: [...new Set([...(cur.extraDirs || []), ...outside])] }))
     // Claude Code and Gemini CLI understand @path references; Codex gets plain paths.
     const ref = (p) => (tab.agent === 'codex' ? (/\s/.test(p) ? `"${p}"` : p) : '@' + (/\s/.test(p) ? `"${p}"` : p))
     insert(paths.map(ref).join(' ') + ' ')
@@ -207,6 +216,11 @@ export default function ChatView({ tab, active, agents, settings, setSettings, o
         <span className="tb-title ellipsis">
           <strong>{agent?.name}</strong> <span className="muted">· {session.cwd}</span>
         </span>
+        {session.extraDirs?.length > 0 && (
+          <span className="chip" title={session.extraDirs.join('\n')}>
+            +{session.extraDirs.length} {t('extraFolders')}
+          </span>
+        )}
         {totalCost > 0 && <span className="muted small">${totalCost.toFixed(3)}</span>}
         <label className="check" title={t('autoApproveHint')}>
           <input

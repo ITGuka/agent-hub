@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react'
 const dict = {
   ka: {
     newChat: 'ახალი ჩატი',
+    extraFolders: 'საქაღალდე',
     newTerminal: 'ახალი ტერმინალი',
     chat: 'ჩატი',
     terminal: 'ტერმინალი',
@@ -83,6 +84,7 @@ const dict = {
   },
   en: {
     newChat: 'New chat',
+    extraFolders: 'folder(s)',
     newTerminal: 'New terminal',
     chat: 'Chat',
     terminal: 'Terminal',

@@ -271,3 +271,5 @@ textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); 
 /* Settings: templates */
 .template-row { border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; }
 .term-wrap { position: relative; }
+
+.chip { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #ffffff12; color: #c9ccd1; white-space: nowrap; cursor: default; }

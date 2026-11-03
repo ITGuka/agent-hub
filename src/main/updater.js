@@ -7,10 +7,10 @@ const { autoUpdater } = electronUpdater
 // idle | checking | available | downloading | ready | latest | error | dev
 let state = { status: 'idle' }
 
-export function initUpdater(getWin) {
+export function initUpdater(sendToWindow) {
   const send = (patch) => {
     state = { ...state, ...patch }
-    getWin()?.webContents.send('update:state', state)
+    sendToWindow('update:state', state)
   }
 
   ipcMain.handle('update:state', () => state)

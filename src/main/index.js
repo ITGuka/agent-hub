@@ -15,6 +15,22 @@ const terms = new Map() // id -> IPty
 let win = null
 let nextId = 1
 
+// Send to the renderer only while the window is alive. A pty can still emit
+// output after the window is closed (quit, restart-to-update), and sending to a
+// destroyed webContents throws "Object has been destroyed".
+function send(channel, ...args) {
+  if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send(channel, ...args)
+}
+
+function killAll() {
+  for (const p of terms.values()) {
+    try {
+      p.kill()
+    } catch {}
+  }
+  terms.clear()
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1280,
@@ -29,6 +45,10 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true
     }
+  })
+  win.on('closed', () => {
+    killAll()
+    win = null
   })
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url)
@@ -99,10 +119,10 @@ async function spawnTerm({ kind, cwd, cols, rows }) {
   })
   const id = nextId++
   terms.set(id, p)
-  p.onData((data) => win?.webContents.send('term:data', id, data))
+  p.onData((data) => send('term:data', id, data))
   p.onExit(({ exitCode }) => {
     terms.delete(id)
-    win?.webContents.send('term:exit', id, exitCode)
+    send('term:exit', id, exitCode)
   })
   return { id, cwd: workdir }
 }
@@ -141,14 +161,11 @@ ipcMain.handle('projects:reveal', (_e, dir) => shell.openPath(dir))
 ipcMain.handle('app:info', () => ({ version: app.getVersion(), platform: process.platform }))
 
 app.whenReady().then(() => {
-  initUpdater(() => win)
+  initUpdater(send)
   createWindow()
 })
+app.on('before-quit', killAll)
 app.on('window-all-closed', () => {
-  for (const p of terms.values()) {
-    try {
-      p.kill()
-    } catch {}
-  }
+  killAll()
   app.quit()
 })

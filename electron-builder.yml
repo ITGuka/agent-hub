@@ -1,0 +1,22 @@
+appId: com.itguka.agenthub
+productName: Agent Hub
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - node_modules/node-pty/**
+# node-pty ships N-API prebuilds for Windows, so no native rebuild is needed.
+npmRebuild: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: AgentHub-Setup-${version}.exe
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Agent Hub

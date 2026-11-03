@@ -1,0 +1,88 @@
+import { createContext, useContext } from 'react'
+
+const dict = {
+  ka: {
+    appName: 'Agent Hub',
+    project: 'პროექტი',
+    noProject: 'პროექტი არ არის არჩეული',
+    chooseFolder: 'ფოლდერის არჩევა',
+    recent: 'ბოლო პროექტები',
+    openInExplorer: 'Explorer-ში გახსნა',
+    remove: 'წაშლა',
+    agents: 'აგენტები',
+    newTab: 'ახალი ტაბი',
+    shell: 'ტერმინალი',
+    settings: 'პარამეტრები',
+    installation: 'ინსტალაცია',
+    installed: 'დაყენებულია',
+    notInstalled: 'არ არის დაყენებული',
+    checking: 'მოწმდება…',
+    install: 'დაყენება',
+    update: 'განახლება',
+    recheck: 'თავიდან შემოწმება',
+    nodeMissing: 'Node.js ვერ მოიძებნა. აგენტების დასაყენებლად საჭიროა Node.js 20+:',
+    welcomeTitle: 'რომელ აგენტთან გინდა მუშაობა?',
+    welcomeSub: 'აირჩიე პროექტის ფოლდერი და გაუშვი აგენტი ახალ ტაბში.',
+    start: 'გაშვება',
+    exited: 'პროცესი დასრულდა, კოდი',
+    restart: 'თავიდან გაშვება',
+    close: 'დახურვა',
+    language: 'ენა',
+    apiKeys: 'API გასაღებები',
+    apiKeysHint:
+      'არასავალდებულოა. თუ აგენტში უკვე ხარ შესული ანგარიშით, ცარიელი დატოვე. გასაღებები Windows-ის დაშიფვრით ინახება.',
+    keySet: 'შენახულია',
+    save: 'შენახვა',
+    clear: 'წაშლა',
+    extraArgs: 'დამატებითი არგუმენტები',
+    extraArgsHint: 'ყოველ გაშვებას დაემატება, მაგ. --model ან --yolo',
+    done: 'მზადაა',
+    pickFolderFirst: 'ჯერ აირჩიე პროექტის ფოლდერი — ან გაუშვი მთავარ საქაღალდეში.',
+    runAnyway: 'მთავარ საქაღალდეში გაშვება'
+  },
+  en: {
+    appName: 'Agent Hub',
+    project: 'Project',
+    noProject: 'No project selected',
+    chooseFolder: 'Choose folder',
+    recent: 'Recent projects',
+    openInExplorer: 'Open in Explorer',
+    remove: 'Remove',
+    agents: 'Agents',
+    newTab: 'New tab',
+    shell: 'Terminal',
+    settings: 'Settings',
+    installation: 'Installation',
+    installed: 'Installed',
+    notInstalled: 'Not installed',
+    checking: 'Checking…',
+    install: 'Install',
+    update: 'Update',
+    recheck: 'Check again',
+    nodeMissing: 'Node.js not found. Node.js 20+ is required to install agents:',
+    welcomeTitle: 'Which agent do you want to work with?',
+    welcomeSub: 'Pick a project folder and launch an agent in a new tab.',
+    start: 'Start',
+    exited: 'Process exited with code',
+    restart: 'Restart',
+    close: 'Close',
+    language: 'Language',
+    apiKeys: 'API keys',
+    apiKeysHint:
+      'Optional. Leave empty if you already signed in to the agent with your account. Keys are encrypted by the OS.',
+    keySet: 'Saved',
+    save: 'Save',
+    clear: 'Clear',
+    extraArgs: 'Extra arguments',
+    extraArgsHint: 'Added to every launch, e.g. --model or --yolo',
+    done: 'Done',
+    pickFolderFirst: 'Choose a project folder first — or run it in your home folder.',
+    runAnyway: 'Run in home folder'
+  }
+}
+
+export const LangContext = createContext('ka')
+export function useT() {
+  const lang = useContext(LangContext)
+  return (key) => dict[lang]?.[key] ?? dict.en[key] ?? key
+}

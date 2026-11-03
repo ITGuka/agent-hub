@@ -38,7 +38,10 @@ export default function App() {
   const openTab = (kind, cwd = project) => {
     const key = tabSeq++
     const a = agents[kind]
-    const title = kind.startsWith('install:')
+    const title =
+      kind === 'install:node'
+        ? 'Node.js'
+        : kind.startsWith('install:')
       ? `npm · ${agents[kind.slice(8)].name}`
       : `${a ? a.name : 'Terminal'}${cwd ? ' · ' + baseName(cwd) : ''}`
     setTabs((ts) => [...ts, { key, kind, cwd, title, status: 'starting', gen: 0 }])
@@ -127,6 +130,18 @@ export default function App() {
   )
 }
 
+function NodeMissing({ install, small }) {
+  const t = useT()
+  return (
+    <div className={'node-missing' + (small ? ' small' : '')}>
+      <span className="warn">{t('nodeMissing')}</span>
+      <button className="btn primary small" onClick={() => install('node')}>
+        {t('installNode')}
+      </button>
+    </div>
+  )
+}
+
 function StatusDot({ info }) {
   const cls = !info ? 'dot checking' : info.installed ? 'dot ok' : 'dot missing'
   return <span className={cls} />
@@ -211,14 +226,7 @@ function Sidebar({ settings, setSettings, agents, detect, project, setProject, o
             </div>
           )
         })}
-        {detect && !detect.npm && (
-          <p className="warn small">
-            {t('nodeMissing')}{' '}
-            <a href="https://nodejs.org" target="_blank" rel="noreferrer">
-              nodejs.org
-            </a>
-          </p>
-        )}
+        {detect && !detect.npm && <NodeMissing install={install} small />}
         <button className="agent-btn" style={{ '--agent': '#8a8f98' }} onClick={() => openTab('shell')}>
           <span className="dot ok" />
           <span className="grow">{t('shell')}</span>
@@ -293,14 +301,7 @@ function Welcome({ agents, detect, project, openTab, install }) {
     <div className="welcome">
       <h1>{t('welcomeTitle')}</h1>
       <p className="muted">{project ? project : t('welcomeSub')}</p>
-      {detect && !detect.node && (
-        <p className="warn">
-          {t('nodeMissing')}{' '}
-          <a href="https://nodejs.org" target="_blank" rel="noreferrer">
-            nodejs.org
-          </a>
-        </p>
-      )}
+      {detect && !detect.npm && <NodeMissing install={install} />}
       <div className="cards">
         {Object.values(agents).map((a) => {
           const info = detect?.agents[a.id]

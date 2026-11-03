@@ -152,3 +152,6 @@ a { color: var(--accent); }
 .badge { background: #3fb95022; color: var(--ok); font-size: 11px; padding: 1px 7px; border-radius: 10px; }
 .install-table { width: 100%; border-collapse: collapse; }
 .install-table td { padding: 7px 4px; border-top: 1px solid var(--border); }
+
+.node-missing { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 12px 0; }
+.node-missing.small { align-items: stretch; margin: 6px 0 10px; font-size: 12px; }

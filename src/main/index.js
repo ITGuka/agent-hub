@@ -45,6 +45,15 @@ function splitArgs(s) {
 // Build the command line for a tab. kind: agent id | 'shell' | 'install:<agentId>'
 function commandFor(kind) {
   if (kind === 'shell') return null
+  if (kind === 'install:node') {
+    // Node.js LTS via winget (Windows) or Homebrew (macOS).
+    if (isWin)
+      return {
+        cmd: 'winget',
+        args: ['install', '--id', 'OpenJS.NodeJS.LTS', '-e', '--accept-source-agreements', '--accept-package-agreements']
+      }
+    return { cmd: 'brew', args: ['install', 'node'] }
+  }
   if (kind.startsWith('install:')) {
     const a = AGENTS[kind.slice(8)]
     return { cmd: 'npm', args: ['install', '-g', `${a.npmPackage}@latest`] }
@@ -68,7 +77,7 @@ async function spawnTerm({ kind, cwd, cols, rows }) {
   }
   const workdir = cwd && fs.existsSync(cwd) ? cwd : os.homedir()
   const c = commandFor(kind)
-  if (c && kind.startsWith('install:') && !(await hasNpm(env)))
+  if (c && kind.startsWith('install:') && kind !== 'install:node' && !(await hasNpm(env)))
     throw new Error('npm not found. Install Node.js 20+ from https://nodejs.org, then press "Check again" in Settings.')
   let file, args
   if (isWin) {

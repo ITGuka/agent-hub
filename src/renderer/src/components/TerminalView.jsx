@@ -13,7 +13,7 @@ const theme = {
   selectionBackground: '#3a4150'
 }
 
-export default function TerminalView({ tab, active, onStatus, onRestart, templates }) {
+export default function TerminalView({ tab, visible, focused, onFocus, onStatus, onRestart, templates }) {
   const t = useT()
   const host = useRef(null)
   const fitRef = useRef(null)
@@ -108,14 +108,14 @@ export default function TerminalView({ tab, active, onStatus, onRestart, templat
   }, [])
 
   useEffect(() => {
-    if (active)
+    if (visible)
       requestAnimationFrame(() => {
         try {
           fitRef.current?.fit()
         } catch {}
-        termRef.current?.focus()
+        if (focused) termRef.current?.focus()
       })
-  }, [active])
+  }, [visible, focused])
 
   const paste = (text) => {
     if (idRef.current) window.api.term.write(idRef.current, text)
@@ -139,13 +139,16 @@ export default function TerminalView({ tab, active, onStatus, onRestart, templat
 
   return (
     <div
-      className="term-wrap"
-      style={{ display: active ? 'flex' : 'none' }}
+      className={'term-wrap pane' + (focused ? ' focused' : '')}
+      style={{ display: visible ? 'flex' : 'none' }}
+      onMouseDown={onFocus}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
     >
       <div className="toolbar">
-        <span className="tb-title ellipsis muted">{tab.cwd}</span>
+        <span className="tb-title ellipsis muted">
+          <strong className="pane-name">{tab.title}</strong> · {tab.cwd}
+        </span>
         <TemplatesMenu templates={templates || []} onPick={paste} />
         <button className="btn small" onClick={exportLog}>
           ⤓ {t('export')}

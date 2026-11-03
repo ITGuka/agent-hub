@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { LangContext, useT } from './i18n'
 import TerminalView from './components/TerminalView'
 import ChatView from './components/ChatView'
+import CompareView from './components/CompareView'
 import Settings from './components/Settings'
 import { useUpdate, UpdateCard } from './components/Update'
 
@@ -14,7 +15,25 @@ export default function App() {
   const [detect, setDetect] = useState(null)
   const [project, setProject] = useState(null)
   const [tabs, setTabs] = useState([])
-  const [activeKey, setActiveKey] = useState(null)
+  const [activeKey, setActiveKeyRaw] = useState(null)
+  const [mru, setMru] = useState([]) // most recently focused tab keys
+  const [layout, setLayoutRaw] = useState(() => {
+    try {
+      return +localStorage.getItem('layout') || 1
+    } catch {
+      return 1
+    }
+  })
+  const setLayout = (n) => {
+    setLayoutRaw(n)
+    try {
+      localStorage.setItem('layout', String(n))
+    } catch {}
+  }
+  const setActiveKey = (key) => {
+    setActiveKeyRaw(key)
+    if (key != null) setMru((m) => [key, ...m.filter((k) => k !== key)])
+  }
   const [showSettings, setShowSettings] = useState(false)
   const [appInfo, setAppInfo] = useState({ version: '' })
   const [sessions, setSessions] = useState([])
@@ -52,13 +71,21 @@ export default function App() {
     setActiveKey(key)
   }
 
-  const openChat = (agent, session = null) => {
+  const openChat = async (agent, session = null) => {
     if (session) {
       const existing = tabs.find((t) => t.type === 'chat' && t.sessionId === session.id)
       if (existing) return setActiveKey(existing.key)
     }
+    let worktree = null
+    if (!session && settings.isolateChats && project) {
+      try {
+        worktree = await window.api.git.createWorktree(project, agent)
+      } catch (e) {
+        alert(`Git worktree: ${e.message}`)
+      }
+    }
     const key = tabSeq++
-    const cwd = session ? session.cwd : project
+    const cwd = session ? session.project || session.cwd : project
     setTabs((ts) => [
       ...ts,
       {
@@ -67,9 +94,16 @@ export default function App() {
         agent,
         cwd,
         sessionId: session?.id || null,
+        worktree,
         title: session?.title || `${agents[agent].name}${cwd ? ' · ' + baseName(cwd) : ''}`
       }
     ])
+    setActiveKey(key)
+  }
+
+  const openCompare = () => {
+    const key = tabSeq++
+    setTabs((ts) => [...ts, { key, type: 'compare', cwd: project, title: '⚖ ' + baseName(project || '') }])
     setActiveKey(key)
   }
 
@@ -85,6 +119,15 @@ export default function App() {
   const patchTab = (key, patch) => setTabs((ts) => ts.map((t) => (t.key === key ? { ...t, ...patch } : t)))
 
   const install = (agentId) => openTab('install:' + agentId, null)
+
+  // Which tabs are on screen: the focused one plus the most recently used others.
+  const existingMru = [activeKey, ...mru].filter((k, i, a) => k != null && a.indexOf(k) === i && tabs.some((t) => t.key === k))
+  const visibleKeys = existingMru.slice(0, Math.min(layout, tabs.length))
+  const paneProps = (tab) => ({
+    visible: visibleKeys.includes(tab.key),
+    focused: tab.key === activeKey,
+    onFocus: () => tab.key !== activeKey && setActiveKey(tab.key)
+  })
 
   const onTabStatus = (tab, status) => {
     patchTab(tab.key, { status })
@@ -103,6 +146,7 @@ export default function App() {
           setProject={setProject}
           openTab={openTab}
           openChat={openChat}
+          openCompare={openCompare}
           install={install}
           openSettings={() => setShowSettings(true)}
           update={update}
@@ -111,15 +155,36 @@ export default function App() {
         />
         <main className="main">
           {tabs.length > 0 && (
-            <TabBar tabs={tabs} agents={agents} activeKey={activeKey} setActiveKey={setActiveKey} closeTab={closeTab} />
+            <TabBar
+              tabs={tabs}
+              agents={agents}
+              activeKey={activeKey}
+              visibleKeys={visibleKeys}
+              setActiveKey={setActiveKey}
+              closeTab={closeTab}
+              layout={layout}
+              setLayout={setLayout}
+            />
           )}
-          <div className="terms">
+          <div className={'terms layout-' + Math.min(layout, Math.max(tabs.length, 1))}>
             {tabs.map((tab) =>
-              tab.type === 'chat' ? (
+              tab.type === 'compare' ? (
+                <CompareView
+                  key={tab.key}
+                  tab={tab}
+                  {...paneProps(tab)}
+                  agents={agents}
+                  detect={detect}
+                  settings={settings}
+                  setSettings={setSettings}
+                  onSaved={refreshSessions}
+                  onTitle={(title) => patchTab(tab.key, { title: '⚖ ' + title, titled: true })}
+                />
+              ) : tab.type === 'chat' ? (
                 <ChatView
                   key={tab.key}
                   tab={tab}
-                  active={tab.key === activeKey}
+                  {...paneProps(tab)}
                   agents={agents}
                   settings={settings}
                   setSettings={setSettings}
@@ -130,7 +195,7 @@ export default function App() {
                 <TerminalView
                   key={tab.key + ':' + tab.gen}
                   tab={tab}
-                  active={tab.key === activeKey}
+                  {...paneProps(tab)}
                   templates={settings.templates}
                   onStatus={(s) => onTabStatus(tab, s)}
                   onRestart={() => patchTab(tab.key, { gen: tab.gen + 1, status: 'starting' })}
@@ -138,7 +203,15 @@ export default function App() {
               )
             )}
             {tabs.length === 0 && (
-              <Welcome agents={agents} detect={detect} project={project} openTab={openTab} openChat={openChat} install={install} />
+              <Welcome
+                agents={agents}
+                detect={detect}
+                project={project}
+                openTab={openTab}
+                openChat={openChat}
+                openCompare={openCompare}
+                install={install}
+              />
             )}
           </div>
         </main>
@@ -200,7 +273,7 @@ function History({ sessions, agents, project, openChat, refreshSessions, lang })
     return () => clearTimeout(h)
   }, [query, sessions])
 
-  const items = results ?? sessions.filter((s) => !project || s.cwd === project).slice(0, 40)
+  const items = results ?? sessions.filter((s) => !project || (s.project || s.cwd) === project).slice(0, 40)
 
   const remove = async (e, id) => {
     e.stopPropagation()
@@ -243,7 +316,7 @@ function History({ sessions, agents, project, openChat, refreshSessions, lang })
 }
 
 function Sidebar(props) {
-  const { settings, setSettings, agents, detect, project, setProject, openTab, openChat, install, openSettings, update } = props
+  const { settings, setSettings, agents, detect, project, setProject, openTab, openChat, openCompare, install, openSettings, update } = props
   const t = useT()
   const pick = async () => {
     const r = await window.api.projects.pick()
@@ -343,6 +416,9 @@ function Sidebar(props) {
           )
         })}
         {detect && !detect.npm && <NodeMissing install={install} small />}
+        <button className="btn compare-btn" onClick={openCompare} title={t('compareSub')}>
+          ⚖ {t('compareAll')}
+        </button>
         <div className="agent-row" style={{ '--agent': '#8a8f98' }}>
           <div className="agent-name">
             <span className="dot ok" />
@@ -365,21 +441,27 @@ function Sidebar(props) {
   )
 }
 
-function TabBar({ tabs, agents, activeKey, setActiveKey, closeTab }) {
+function TabBar({ tabs, agents, activeKey, visibleKeys, setActiveKey, closeTab, layout, setLayout }) {
+  const t = useT()
   return (
     <div className="tabbar">
+      <div className="tabs-scroll">
       {tabs.map((tab) => {
         const color = agents[tab.type === 'chat' ? tab.agent : tab.kind]?.color || '#8a8f98'
         return (
           <div
             key={tab.key}
-            className={'tab' + (tab.key === activeKey ? ' active' : '') + (tab.status === 'exited' ? ' exited' : '')}
+            className={
+              'tab' +
+              (tab.key === activeKey ? ' active' : visibleKeys.includes(tab.key) ? ' shown' : '') +
+              (tab.status === 'exited' ? ' exited' : '')
+            }
             style={{ '--agent': color }}
             onClick={() => setActiveKey(tab.key)}
             onMouseDown={(e) => e.button === 1 && closeTab(tab.key)}
             title={tab.cwd || ''}
           >
-            <span className="tab-icon">{tab.type === 'chat' ? '💬' : '›_'}</span>
+            <span className="tab-icon">{tab.type === 'chat' ? '💬' : tab.type === 'compare' ? '⚖' : '›_'}</span>
             <span className="ellipsis">{tab.title}</span>
             <button
               className="x"
@@ -393,11 +475,23 @@ function TabBar({ tabs, agents, activeKey, setActiveKey, closeTab }) {
           </div>
         )
       })}
+      </div>
+      <div className="layout-btns">
+        {[
+          [1, '▢', 'layout1'],
+          [2, '◫', 'layout2'],
+          [4, '⊞', 'layout4']
+        ].map(([n, icon, key]) => (
+          <button key={n} className={layout === n ? 'on' : ''} title={t(key)} onClick={() => setLayout(n)}>
+            {icon}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
 
-function Welcome({ agents, detect, project, openTab, openChat, install }) {
+function Welcome({ agents, detect, project, openTab, openChat, openCompare, install }) {
   const t = useT()
   return (
     <div className="welcome">
@@ -434,6 +528,9 @@ function Welcome({ agents, detect, project, openTab, openChat, install }) {
           )
         })}
       </div>
+      <button className="btn compare-btn wide" onClick={openCompare}>
+        ⚖ {t('compareAll')} — <span className="muted">{t('compareSub')}</span>
+      </button>
       {!project && <p className="muted small">{t('pickFolderFirst')}</p>}
     </div>
   )

@@ -12,6 +12,7 @@ import { initUpdater } from './updater'
 import { checkKey } from './keycheck'
 import * as chat from './chat'
 import * as sessions from './sessions'
+import * as git from './git'
 
 const isWin = process.platform === 'win32'
 const terms = new Map() // id -> IPty
@@ -189,6 +190,11 @@ ipcMain.handle('sessions:export', async (_e, id) => {
   if (!s) return false
   return saveText(s.title, sessions.toMarkdown(s, AGENTS[s.agent]?.name || s.agent))
 })
+ipcMain.handle('git:info', (_e, dir) => git.info(dir))
+ipcMain.handle('git:createWorktree', (_e, project, agent) => git.createWorktree(project, agent))
+ipcMain.handle('git:diff', (_e, dir, base) => git.diff(dir, base))
+ipcMain.handle('git:apply', (_e, wt) => git.applyToProject(wt))
+ipcMain.handle('git:removeWorktree', (_e, wt) => git.removeWorktree(wt))
 ipcMain.handle('file:saveText', (_e, name, text) => saveText(name, text))
 
 async function saveText(name, text) {

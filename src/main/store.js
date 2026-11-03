@@ -7,6 +7,8 @@ const DEFAULTS = {
   recentProjects: [],
   agentArgs: { claude: '', codex: '', gemini: '' },
   chatAutoApprove: false,
+  isolateChats: false,
+  stats: { comparisons: 0, wins: {} },
   templates: [
     { name: 'Code review', text: 'Review the uncommitted changes in this project. List bugs and risky spots, most severe first.' },
     { name: 'Explain project', text: 'Explain the structure of this project: main parts, how they connect, and where to start reading.' },
@@ -43,7 +45,7 @@ export function publicSettings() {
 
 export function update(patch) {
   const s = load()
-  for (const key of ['language', 'agentArgs', 'chatAutoApprove', 'templates']) if (key in patch) s[key] = patch[key]
+  for (const key of ['language', 'agentArgs', 'chatAutoApprove', 'isolateChats', 'templates', 'stats']) if (key in patch) s[key] = patch[key]
   save()
   return publicSettings()
 }

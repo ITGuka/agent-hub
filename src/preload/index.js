@@ -45,6 +45,13 @@ contextBridge.exposeInMainWorld('api', {
     search: (q) => ipcRenderer.invoke('sessions:search', q),
     export: (id) => ipcRenderer.invoke('sessions:export', id)
   },
+  git: {
+    info: (dir) => ipcRenderer.invoke('git:info', dir),
+    createWorktree: (project, agent) => ipcRenderer.invoke('git:createWorktree', project, agent),
+    diff: (dir, base) => ipcRenderer.invoke('git:diff', dir, base),
+    apply: (wt) => ipcRenderer.invoke('git:apply', wt),
+    removeWorktree: (wt) => ipcRenderer.invoke('git:removeWorktree', wt)
+  },
   files: {
     saveText: (name, text) => ipcRenderer.invoke('file:saveText', name, text),
     // Electron 32+ removed File.path; this is the supported replacement.

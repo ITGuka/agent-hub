@@ -176,6 +176,29 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
             {t('autoApprove')}
           </label>
           <p className="muted small">{t('autoApproveHint')}</p>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={!!settings.isolateChats}
+              onChange={async (e) => setSettings(await window.api.settings.update({ isolateChats: e.target.checked }))}
+            />
+            {t('isolateChats')}
+          </label>
+          <p className="muted small">{t('isolateHint')}</p>
+        </section>
+
+        <section>
+          <h3>{t('compareStats')}</h3>
+          <div className="row stats-row">
+            <span className="muted small">
+              {t('comparisons')}: {settings.stats?.comparisons || 0}
+            </span>
+            {Object.values(agents).map((a) => (
+              <span key={a.id} className="chip" style={{ color: a.color }}>
+                ★ {a.name} {settings.stats?.wins?.[a.id] || 0}
+              </span>
+            ))}
+          </div>
         </section>
 
         <section>

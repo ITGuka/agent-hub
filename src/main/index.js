@@ -8,6 +8,7 @@ import { AGENTS } from './agents'
 import * as store from './store'
 import { detectAll } from './detect'
 import { getEnv } from './env'
+import { initUpdater } from './updater'
 
 const isWin = process.platform === 'win32'
 const terms = new Map() // id -> IPty
@@ -130,7 +131,10 @@ ipcMain.handle('projects:remove', (_e, dir) => store.removeRecentProject(dir))
 ipcMain.handle('projects:reveal', (_e, dir) => shell.openPath(dir))
 ipcMain.handle('app:info', () => ({ version: app.getVersion(), platform: process.platform }))
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  initUpdater(() => win)
+  createWindow()
+})
 app.on('window-all-closed', () => {
   for (const p of terms.values()) {
     try {

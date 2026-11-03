@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { LangContext, useT } from './i18n'
 import TerminalView from './components/TerminalView'
 import Settings from './components/Settings'
+import { useUpdate, UpdateCard } from './components/Update'
 
 let tabSeq = 1
 const baseName = (p) => (p ? p.split(/[\\/]/).filter(Boolean).pop() : '')
@@ -14,6 +15,8 @@ export default function App() {
   const [tabs, setTabs] = useState([])
   const [activeKey, setActiveKey] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [appInfo, setAppInfo] = useState({ version: '' })
+  const update = useUpdate()
 
   const runDetect = useCallback(() => {
     setDetect(null)
@@ -26,6 +29,7 @@ export default function App() {
       if (s.recentProjects[0]) setProject(s.recentProjects[0])
     })
     window.api.agents.list().then(setAgents)
+    window.api.app.info().then(setAppInfo)
     runDetect()
   }, [runDetect])
 
@@ -75,6 +79,7 @@ export default function App() {
           openTab={openTab}
           install={install}
           openSettings={() => setShowSettings(true)}
+          update={update}
         />
         <main className="main">
           {tabs.length > 0 && (
@@ -108,6 +113,8 @@ export default function App() {
             agents={agents}
             detect={detect}
             runDetect={runDetect}
+            update={update}
+            version={appInfo.version}
             install={(id) => {
               setShowSettings(false)
               install(id)
@@ -125,7 +132,7 @@ function StatusDot({ info }) {
   return <span className={cls} />
 }
 
-function Sidebar({ settings, setSettings, agents, detect, project, setProject, openTab, install, openSettings }) {
+function Sidebar({ settings, setSettings, agents, detect, project, setProject, openTab, install, openSettings, update }) {
   const t = useT()
   const pick = async () => {
     const r = await window.api.projects.pick()
@@ -238,6 +245,7 @@ function Sidebar({ settings, setSettings, agents, detect, project, setProject, o
         </section>
       )}
 
+      <UpdateCard state={update} />
       <div className="sidebar-foot">
         <button className="btn grow" onClick={openSettings}>
           ⚙ {t('settings')}

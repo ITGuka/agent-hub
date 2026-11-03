@@ -2,6 +2,16 @@ import { createContext, useContext } from 'react'
 
 const dict = {
   ka: {
+    version: 'ვერსია',
+    checkUpdates: 'განახლების შემოწმება',
+    updateAvailable: 'ახალი ვერსია',
+    download: 'ჩამოტვირთვა',
+    downloading: 'იტვირთება',
+    updateReady: 'მზადაა დასაყენებლად',
+    restartToUpdate: 'გადატვირთვა და განახლება',
+    upToDate: 'ბოლო ვერსიაა',
+    updateError: 'შეცდომა',
+    updateDev: 'დეველოპმენტის რეჟიმი',
     appName: 'Agent Hub',
     project: 'პროექტი',
     noProject: 'პროექტი არ არის არჩეული',
@@ -41,6 +51,16 @@ const dict = {
     runAnyway: 'მთავარ საქაღალდეში გაშვება'
   },
   en: {
+    version: 'Version',
+    checkUpdates: 'Check for updates',
+    updateAvailable: 'New version',
+    download: 'Download',
+    downloading: 'Downloading',
+    updateReady: 'Ready to install',
+    restartToUpdate: 'Restart & update',
+    upToDate: 'Up to date',
+    updateError: 'Error',
+    updateDev: 'Development mode',
     appName: 'Agent Hub',
     project: 'Project',
     noProject: 'No project selected',

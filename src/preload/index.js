@@ -30,5 +30,12 @@ contextBridge.exposeInMainWorld('api', {
     remove: (dir) => ipcRenderer.invoke('projects:remove', dir),
     reveal: (dir) => ipcRenderer.invoke('projects:reveal', dir)
   },
-  app: { info: () => ipcRenderer.invoke('app:info') }
+  app: { info: () => ipcRenderer.invoke('app:info') },
+  update: {
+    state: () => ipcRenderer.invoke('update:state'),
+    check: () => ipcRenderer.invoke('update:check'),
+    download: () => ipcRenderer.invoke('update:download'),
+    install: () => ipcRenderer.invoke('update:install'),
+    onState: on('update:state')
+  }
 })

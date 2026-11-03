@@ -1,11 +1,17 @@
 name: Build Windows installer
 
+# Every push to main builds the installer. If package.json has a version that
+# has no GitHub release yet, the build is also published as release v<version>,
+# which installed apps pick up through the in-app updater.
+
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   windows:
@@ -17,13 +23,29 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run dist
+
+      - name: Is this version already released?
+        id: ver
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "v$V" >/dev/null 2>&1; then echo "release=false" >> "$GITHUB_OUTPUT"
+          else echo "release=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Build and publish release v${{ steps.ver.outputs.version }}
+        if: github.event_name == 'push' && steps.ver.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-vite build && npx electron-builder --win --publish always
+
+      - name: Build only
+        if: github.event_name != 'push' || steps.ver.outputs.release != 'true'
+        run: npm run dist
+
       - uses: actions/upload-artifact@v4
         with:
           name: AgentHub-Setup
           path: dist/*.exe
-      - name: Attach to GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.exe

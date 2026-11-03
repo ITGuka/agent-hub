@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useT } from '../i18n'
+import { UpdateSection } from './Update'
 
-export default function Settings({ settings, setSettings, agents, detect, runDetect, install, onClose }) {
+export default function Settings({ settings, setSettings, agents, detect, runDetect, install, onClose, update, version }) {
   const t = useT()
   const [keys, setKeys] = useState({})
   const [args, setArgs] = useState(settings.agentArgs)
@@ -36,6 +37,8 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
             ))}
           </div>
         </section>
+
+        <UpdateSection state={update} version={version} />
 
         <section>
           <div className="row between">

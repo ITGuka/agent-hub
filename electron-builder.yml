@@ -20,3 +20,8 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   shortcutName: Agent Hub
+publish:
+  provider: github
+  owner: ITGuka
+  repo: agent-hub
+  releaseType: release

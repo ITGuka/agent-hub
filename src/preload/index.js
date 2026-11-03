@@ -22,7 +22,8 @@ contextBridge.exposeInMainWorld('api', {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     update: (patch) => ipcRenderer.invoke('settings:update', patch),
-    setKey: (agentId, value) => ipcRenderer.invoke('settings:setKey', agentId, value)
+    setKey: (agentId, value) => ipcRenderer.invoke('settings:setKey', agentId, value),
+    checkKey: (agentId, typed) => ipcRenderer.invoke('settings:checkKey', agentId, typed)
   },
   projects: {
     pick: () => ipcRenderer.invoke('projects:pick'),

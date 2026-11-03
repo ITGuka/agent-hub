@@ -6,11 +6,19 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
   const t = useT()
   const [keys, setKeys] = useState({})
   const [args, setArgs] = useState(settings.agentArgs)
+  const [checks, setChecks] = useState({})
+
+  const testKey = async (id) => {
+    setChecks((c) => ({ ...c, [id]: { pending: true } }))
+    const r = await window.api.settings.checkKey(id, keys[id])
+    setChecks((c) => ({ ...c, [id]: r }))
+  }
 
   const setLang = async (language) => setSettings(await window.api.settings.update({ language }))
   const saveKey = async (id, value) => {
     setSettings(await window.api.settings.setKey(id, value))
     setKeys((k) => ({ ...k, [id]: '' }))
+    setChecks((c) => ({ ...c, [id]: null }))
   }
   const saveArgs = async () => setSettings(await window.api.settings.update({ agentArgs: args }))
 
@@ -98,12 +106,28 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
                 <button className="btn small" disabled={!keys[a.id]} onClick={() => saveKey(a.id, keys[a.id])}>
                   {t('save')}
                 </button>
+                <button
+                  className="btn small"
+                  disabled={!keys[a.id] && !settings.keysSet[a.id]}
+                  onClick={() => testKey(a.id)}
+                >
+                  {t('testKey')}
+                </button>
                 {settings.keysSet[a.id] && (
                   <button className="btn small" onClick={() => saveKey(a.id, '')}>
                     {t('clear')}
                   </button>
                 )}
               </div>
+              {checks[a.id] && (
+                <div className={'key-check ' + (checks[a.id].pending ? '' : checks[a.id].ok ? 'ok' : 'bad')}>
+                  {checks[a.id].pending
+                    ? t('checking')
+                    : checks[a.id].ok
+                      ? '✓ ' + t('keyValid')
+                      : `✗ ${t('keyInvalid')} (${checks[a.id].status || '—'}): ${checks[a.id].message || ''}`}
+                </div>
+              )}
             </div>
           ))}
         </section>

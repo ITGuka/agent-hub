@@ -9,6 +9,7 @@ import * as store from './store'
 import { detectAll } from './detect'
 import { getEnv } from './env'
 import { initUpdater } from './updater'
+import { checkKey } from './keycheck'
 
 const isWin = process.platform === 'win32'
 const terms = new Map() // id -> IPty
@@ -147,6 +148,7 @@ ipcMain.handle('agents:detect', () => detectAll())
 ipcMain.handle('settings:get', () => store.publicSettings())
 ipcMain.handle('settings:update', (_e, patch) => store.update(patch))
 ipcMain.handle('settings:setKey', (_e, agentId, value) => store.setSecret(agentId, value))
+ipcMain.handle('settings:checkKey', (_e, agentId, typed) => checkKey(agentId, typed))
 
 ipcMain.handle('projects:pick', async () => {
   const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })

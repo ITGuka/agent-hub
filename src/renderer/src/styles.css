@@ -155,3 +155,7 @@ a { color: var(--accent); }
 
 .node-missing { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 12px 0; }
 .node-missing.small { align-items: stretch; margin: 6px 0 10px; font-size: 12px; }
+
+.key-check { font-size: 12px; margin-top: 4px; color: var(--muted); word-break: break-word; }
+.key-check.ok { color: var(--ok); }
+.key-check.bad { color: var(--bad); }

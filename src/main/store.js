@@ -59,6 +59,7 @@ export function removeRecentProject(dir) {
 // API keys are encrypted with the OS keychain (DPAPI on Windows) via safeStorage.
 export function setSecret(agentId, value) {
   const s = load()
+  value = (value || '').trim()
   if (!value) delete s.secrets[agentId]
   else if (safeStorage.isEncryptionAvailable())
     s.secrets[agentId] = 'enc:' + safeStorage.encryptString(value).toString('base64')

@@ -104,7 +104,13 @@ async function spawnTerm({ kind, cwd, cols, rows }) {
   if (isWin) {
     file = process.env.COMSPEC || 'cmd.exe'
     args = c ? ['/d', '/s', '/c', [c.cmd, ...c.args].join(' ')] : []
-    if (!c) file = 'powershell.exe'
+    if (!c) {
+      // Process-scoped Bypass so npm's .ps1 shims (gemini.ps1, npm.ps1, ...) run
+      // even when the machine's execution policy is Restricted. Does not change
+      // the system policy.
+      file = 'powershell.exe'
+      args = ['-NoLogo', '-ExecutionPolicy', 'Bypass']
+    }
   } else {
     file = process.env.SHELL || '/bin/bash'
     const quote = (s) => `'${s.replace(/'/g, `'\\''`)}'`

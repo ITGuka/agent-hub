@@ -4,6 +4,7 @@ import TemplatesMenu from './TemplatesMenu'
 import DiffModal from './DiffModal'
 import Messages from '../chat/Messages'
 import { useChat, newSession, droppedFiles, fileRefs } from '../chat/useChat'
+import { notify, messageText } from '../notify'
 
 export default function ChatView({ tab, visible, focused, agents, settings, setSettings, onSession, onSaved, onFocus }) {
   const t = useT()
@@ -13,7 +14,15 @@ export default function ChatView({ tab, visible, focused, agents, settings, setS
       ? { sessionId: tab.sessionId, fallback: newSession({ agent: tab.agent, cwd: tab.cwd }) }
       : { session: newSession({ agent: tab.agent, cwd: tab.cwd, worktree: tab.worktree }) },
     settings,
-    onSaved
+    onSaved,
+    onFinish: (s) => {
+      const last = s.messages[s.messages.length - 1]
+      notify(settings, {
+        title: `${agent?.name}: ${last?.error ? '⚠' : '✓'} ${s.title || ''}`,
+        body: last?.error || messageText(last),
+        onClick: onFocus
+      })
+    }
   })
   const [input, setInput] = useState('')
   const [dragging, setDragging] = useState(false)

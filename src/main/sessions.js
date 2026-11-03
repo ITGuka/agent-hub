@@ -95,3 +95,26 @@ export function toMarkdown(s, agentName) {
   }
   return lines.join('\n')
 }
+
+// Cost / token totals per agent for today, last 7 days, last 30 days and all time.
+// Claude reports cost; Codex and Gemini report tokens only.
+export function usage() {
+  const now = new Date()
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const ranges = { today: startOfDay, week: Date.now() - 7 * 864e5, month: Date.now() - 30 * 864e5, all: 0 }
+  const out = {}
+  for (const s of readAll()) {
+    for (const m of s.messages || []) {
+      if (m.role !== 'assistant' || (!m.cost && !m.tokens)) continue
+      const a = (out[s.agent] = out[s.agent] || {})
+      for (const [r, from] of Object.entries(ranges)) {
+        if ((m.ts || s.updatedAt) < from) continue
+        const x = (a[r] = a[r] || { cost: 0, tokens: 0, turns: 0 })
+        x.cost += m.cost || 0
+        x.tokens += m.tokens || 0
+        x.turns += 1
+      }
+    }
+  }
+  return out
+}

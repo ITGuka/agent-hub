@@ -31,7 +31,21 @@ contextBridge.exposeInMainWorld('api', {
     remove: (dir) => ipcRenderer.invoke('projects:remove', dir),
     reveal: (dir) => ipcRenderer.invoke('projects:reveal', dir)
   },
-  app: { info: () => ipcRenderer.invoke('app:info') },
+  app: {
+    info: () => ipcRenderer.invoke('app:info'),
+    focus: () => ipcRenderer.invoke('app:focus'),
+    attention: () => ipcRenderer.invoke('app:attention')
+  },
+  usage: { get: () => ipcRenderer.invoke('usage:get') },
+  mcp: {
+    list: () => ipcRenderer.invoke('mcp:list'),
+    add: (agent, def) => ipcRenderer.invoke('mcp:add', agent, def),
+    remove: (agent, name) => ipcRenderer.invoke('mcp:remove', agent, name)
+  },
+  context: {
+    read: (project) => ipcRenderer.invoke('context:read', project),
+    write: (project, text, agents) => ipcRenderer.invoke('context:write', project, text, agents)
+  },
   chat: {
     start: (opts) => ipcRenderer.invoke('chat:start', opts),
     stop: (runId) => ipcRenderer.invoke('chat:stop', runId),

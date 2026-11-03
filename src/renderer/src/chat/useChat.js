@@ -43,11 +43,13 @@ function applyEvent(msg, ev) {
 
 // One chat session with one agent: loading, sending, streaming events, saving.
 // `init` is { sessionId } for an existing session or { session } for a new one.
-export function useChat({ init, settings, onSaved }) {
+export function useChat({ init, settings, onSaved, onFinish }) {
   const [session, setSession] = useState(null)
   const [running, setRunning] = useState(false)
   const [status, setStatus] = useState('')
   const runRef = useRef(null)
+  const onFinishRef = useRef(onFinish)
+  onFinishRef.current = onFinish
 
   useEffect(() => {
     if (init.sessionId) window.api.sessions.get(init.sessionId).then((s) => setSession(s || init.fallback))
@@ -69,6 +71,7 @@ export function useChat({ init, settings, onSaved }) {
       if (last?.role === 'assistant' && !last.done) msgs[msgs.length - 1] = { ...last, done: true }
       const next = { ...cur, messages: msgs, updatedAt: Date.now() }
       persist(next)
+      if (onFinishRef.current) setTimeout(() => onFinishRef.current(next), 0)
       return next
     })
   }

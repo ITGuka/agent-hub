@@ -13,6 +13,8 @@ import { checkKey } from './keycheck'
 import * as chat from './chat'
 import * as sessions from './sessions'
 import * as git from './git'
+import * as mcp from './mcp'
+import * as context from './context'
 
 const isWin = process.platform === 'win32'
 const terms = new Map() // id -> IPty
@@ -87,8 +89,15 @@ function commandFor(kind) {
     return { cmd: 'brew', args: ['install', 'node'] }
   }
   if (kind.startsWith('install:')) {
-    const a = AGENTS[kind.slice(8)]
-    return { cmd: 'npm', args: ['install', '-g', `${a.npmPackage}@latest`] }
+    // One or more agents, e.g. install:claude or install:claude+codex
+    const pkgs = kind
+      .slice(8)
+      .split('+')
+      .map((id) => AGENTS[id])
+      .filter(Boolean)
+      .map((a) => `${a.npmPackage}@latest`)
+    if (!pkgs.length) throw new Error('Unknown agent: ' + kind)
+    return { cmd: 'npm', args: ['install', '-g', ...pkgs] }
   }
   const a = AGENTS[kind]
   if (!a) throw new Error('Unknown agent: ' + kind)
@@ -195,6 +204,21 @@ ipcMain.handle('git:createWorktree', (_e, project, agent) => git.createWorktree(
 ipcMain.handle('git:diff', (_e, dir, base) => git.diff(dir, base))
 ipcMain.handle('git:apply', (_e, wt) => git.applyToProject(wt))
 ipcMain.handle('git:removeWorktree', (_e, wt) => git.removeWorktree(wt))
+ipcMain.handle('usage:get', () => sessions.usage())
+ipcMain.handle('mcp:list', () => mcp.list())
+ipcMain.handle('mcp:add', (_e, agent, def) => mcp.add(agent, def))
+ipcMain.handle('mcp:remove', (_e, agent, name) => mcp.remove(agent, name))
+ipcMain.handle('context:read', (_e, project) => context.read(project))
+ipcMain.handle('context:write', (_e, project, text, agents) => context.write(project, text, agents))
+ipcMain.handle('app:focus', () => {
+  if (!win || win.isDestroyed()) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+})
+ipcMain.handle('app:attention', () => {
+  if (win && !win.isDestroyed() && !win.isFocused()) win.flashFrame(true)
+})
 ipcMain.handle('file:saveText', (_e, name, text) => saveText(name, text))
 
 async function saveText(name, text) {
@@ -212,6 +236,9 @@ async function saveText(name, text) {
 }
 
 ipcMain.handle('app:info', () => ({ version: app.getVersion(), platform: process.platform }))
+
+// Needed on Windows for notifications to show the app's name and icon.
+if (process.platform === 'win32') app.setAppUserModelId('com.itguka.agenthub')
 
 app.whenReady().then(() => {
   initUpdater(send)

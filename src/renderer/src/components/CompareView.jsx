@@ -4,6 +4,7 @@ import TemplatesMenu from './TemplatesMenu'
 import DiffModal from './DiffModal'
 import Messages from '../chat/Messages'
 import { useChat, newSession, uid, droppedFiles, fileRefs } from '../chat/useChat'
+import { notify } from '../notify'
 
 // One agent's column. Reacts to `sendSignal` / `bestSignal` from the parent.
 function Column({ agent, project, worktree, groupId, settings, onSaved, sendSignal, bestSignal, onBest, onRunning, stopSignal }) {
@@ -113,6 +114,12 @@ export default function CompareView({ tab, visible, focused, agents, detect, set
 
   const canIsolate = gitInfo?.repo && gitInfo?.hasCommit
   const anyRunning = Object.values(runningMap).some(Boolean)
+  const wasRunning = useRef(false)
+  useEffect(() => {
+    if (wasRunning.current && !anyRunning)
+      notify(settings, { title: `⚖ ${t('compare')}: ✓`, body: t('allAnswered'), onClick: onFocus })
+    wasRunning.current = anyRunning
+  }, [anyRunning])
 
   const start = async () => {
     setBusy(true)

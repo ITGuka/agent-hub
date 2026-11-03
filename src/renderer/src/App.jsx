@@ -3,6 +3,8 @@ import { LangContext, useT } from './i18n'
 import TerminalView from './components/TerminalView'
 import ChatView from './components/ChatView'
 import CompareView from './components/CompareView'
+import PipelineView from './components/PipelineView'
+import { UsageModal, McpModal, ContextModal } from './components/ToolsModals'
 import Settings from './components/Settings'
 import { useUpdate, UpdateCard } from './components/Update'
 
@@ -35,6 +37,7 @@ export default function App() {
     if (key != null) setMru((m) => [key, ...m.filter((k) => k !== key)])
   }
   const [showSettings, setShowSettings] = useState(false)
+  const [tool, setTool] = useState(null) // 'usage' | 'mcp' | 'context'
   const [appInfo, setAppInfo] = useState({ version: '' })
   const [sessions, setSessions] = useState([])
   const update = useUpdate()
@@ -65,7 +68,11 @@ export default function App() {
       kind === 'install:node'
         ? 'Node.js'
         : kind.startsWith('install:')
-          ? `npm · ${agents[kind.slice(8)].name}`
+          ? `npm · ${kind
+              .slice(8)
+              .split('+')
+              .map((id) => agents[id]?.name || id)
+              .join(', ')}`
           : `${a ? a.name : 'Terminal'}${cwd ? ' · ' + baseName(cwd) : ''}`
     setTabs((ts) => [...ts, { key, type: 'term', kind, cwd, title, status: 'starting', gen: 0 }])
     setActiveKey(key)
@@ -98,6 +105,12 @@ export default function App() {
         title: session?.title || `${agents[agent].name}${cwd ? ' · ' + baseName(cwd) : ''}`
       }
     ])
+    setActiveKey(key)
+  }
+
+  const openPipeline = () => {
+    const key = tabSeq++
+    setTabs((ts) => [...ts, { key, type: 'pipeline', cwd: project, title: '⛓ ' + baseName(project || '') }])
     setActiveKey(key)
   }
 
@@ -147,6 +160,8 @@ export default function App() {
           openTab={openTab}
           openChat={openChat}
           openCompare={openCompare}
+          openPipeline={openPipeline}
+          openTool={setTool}
           install={install}
           openSettings={() => setShowSettings(true)}
           update={update}
@@ -168,7 +183,18 @@ export default function App() {
           )}
           <div className={'terms layout-' + Math.min(layout, Math.max(tabs.length, 1))}>
             {tabs.map((tab) =>
-              tab.type === 'compare' ? (
+              tab.type === 'pipeline' ? (
+                <PipelineView
+                  key={tab.key}
+                  tab={tab}
+                  {...paneProps(tab)}
+                  agents={agents}
+                  settings={settings}
+                  setSettings={setSettings}
+                  onSaved={refreshSessions}
+                  onTitle={(title) => patchTab(tab.key, { title: '⛓ ' + title })}
+                />
+              ) : tab.type === 'compare' ? (
                 <CompareView
                   key={tab.key}
                   tab={tab}
@@ -197,6 +223,7 @@ export default function App() {
                   tab={tab}
                   {...paneProps(tab)}
                   templates={settings.templates}
+                  settings={settings}
                   onStatus={(s) => onTabStatus(tab, s)}
                   onRestart={() => patchTab(tab.key, { gen: tab.gen + 1, status: 'starting' })}
                 />
@@ -215,6 +242,9 @@ export default function App() {
             )}
           </div>
         </main>
+        {tool === 'usage' && <UsageModal agents={agents} onClose={() => setTool(null)} />}
+        {tool === 'mcp' && <McpModal agents={agents} detect={detect} onClose={() => setTool(null)} />}
+        {tool === 'context' && <ContextModal agents={agents} project={project} onClose={() => setTool(null)} />}
         {showSettings && (
           <Settings
             settings={settings}
@@ -316,7 +346,7 @@ function History({ sessions, agents, project, openChat, refreshSessions, lang })
 }
 
 function Sidebar(props) {
-  const { settings, setSettings, agents, detect, project, setProject, openTab, openChat, openCompare, install, openSettings, update } = props
+  const { settings, setSettings, agents, detect, project, setProject, openTab, openChat, openCompare, openPipeline, openTool, install, openSettings, update } = props
   const t = useT()
   const pick = async () => {
     const r = await window.api.projects.pick()
@@ -416,9 +446,6 @@ function Sidebar(props) {
           )
         })}
         {detect && !detect.npm && <NodeMissing install={install} small />}
-        <button className="btn compare-btn" onClick={openCompare} title={t('compareSub')}>
-          ⚖ {t('compareAll')}
-        </button>
         <div className="agent-row" style={{ '--agent': '#8a8f98' }}>
           <div className="agent-name">
             <span className="dot ok" />
@@ -426,6 +453,27 @@ function Sidebar(props) {
           </div>
           <button className="icon-btn" title={t('newTerminal')} onClick={() => openTab('shell')}>
             ›_
+          </button>
+        </div>
+      </section>
+
+      <section>
+        <h3>{t('tools')}</h3>
+        <div className="tools-grid">
+          <button className="tool-btn" onClick={openCompare} title={t('compareSub')}>
+            ⚖ <span>{t('compare')}</span>
+          </button>
+          <button className="tool-btn" onClick={openPipeline} title={t('pipelineSub')}>
+            ⛓ <span>{t('pipeline')}</span>
+          </button>
+          <button className="tool-btn" onClick={() => openTool('usage')}>
+            📊 <span>{t('usage')}</span>
+          </button>
+          <button className="tool-btn" onClick={() => openTool('mcp')}>
+            🔌 <span>MCP</span>
+          </button>
+          <button className="tool-btn wide" onClick={() => openTool('context')} title={t('instructionsHint')}>
+            📝 <span>{t('instructions')}</span>
           </button>
         </div>
       </section>
@@ -461,7 +509,9 @@ function TabBar({ tabs, agents, activeKey, visibleKeys, setActiveKey, closeTab, 
             onMouseDown={(e) => e.button === 1 && closeTab(tab.key)}
             title={tab.cwd || ''}
           >
-            <span className="tab-icon">{tab.type === 'chat' ? '💬' : tab.type === 'compare' ? '⚖' : '›_'}</span>
+            <span className="tab-icon">
+              {tab.type === 'chat' ? '💬' : tab.type === 'compare' ? '⚖' : tab.type === 'pipeline' ? '⛓' : '›_'}
+            </span>
             <span className="ellipsis">{tab.title}</span>
             <button
               className="x"

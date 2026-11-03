@@ -5,6 +5,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { register } from '../termBus'
 import { useT } from '../i18n'
 import TemplatesMenu from './TemplatesMenu'
+import { notify } from '../notify'
 
 const theme = {
   background: '#0f1114',
@@ -13,7 +14,10 @@ const theme = {
   selectionBackground: '#3a4150'
 }
 
-export default function TerminalView({ tab, visible, focused, onFocus, onStatus, onRestart, templates }) {
+export default function TerminalView({ tab, visible, focused, onFocus, onStatus, onRestart, templates, settings }) {
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
+  const lastBell = useRef(0)
   const t = useT()
   const host = useRef(null)
   const fitRef = useRef(null)
@@ -85,6 +89,12 @@ export default function TerminalView({ tab, visible, focused, onFocus, onStatus,
         onStatus('exited')
       })
 
+    // Agents ring the terminal bell when they finish or need input.
+    const bell = term.onBell(() => {
+      if (Date.now() - lastBell.current < 5000) return
+      lastBell.current = Date.now()
+      notify(settingsRef.current, { title: tab.title, body: '🔔', onClick: onFocus })
+    })
     const input = term.onData((d) => idRef.current && window.api.term.write(idRef.current, d))
     const resize = term.onResize(({ cols, rows }) => idRef.current && window.api.term.resize(idRef.current, cols, rows))
     const ro = new ResizeObserver(() => {
@@ -100,6 +110,7 @@ export default function TerminalView({ tab, visible, focused, onFocus, onStatus,
       disposed = true
       ro.disconnect()
       input.dispose()
+      bell.dispose()
       resize.dispose()
       unregister()
       if (idRef.current) window.api.term.kill(idRef.current)

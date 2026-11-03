@@ -57,9 +57,23 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
         <section>
           <div className="row between">
             <h3>{t('installation')}</h3>
-            <button className="btn small" onClick={runDetect}>
-              {t('recheck')}
-            </button>
+            <div className="row">
+              {detect?.npm && Object.values(detect.agents).some((a) => a.installed && a.updateAvailable && a.latest) && (
+                <button className="btn small primary" onClick={() =>
+                    install(
+                      Object.values(detect.agents)
+                        .filter((a) => a.installed && a.updateAvailable && a.latest)
+                        .map((a) => a.id)
+                        .join('+')
+                    )
+                  }>
+                  ⇪ {t('updateAll')}
+                </button>
+              )}
+              <button className="btn small" onClick={runDetect}>
+                {t('recheck')}
+              </button>
+            </div>
           </div>
           <table className="install-table">
             <tbody>
@@ -176,6 +190,15 @@ export default function Settings({ settings, setSettings, agents, detect, runDet
             {t('autoApprove')}
           </label>
           <p className="muted small">{t('autoApproveHint')}</p>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={!!settings.notifications}
+              onChange={async (e) => setSettings(await window.api.settings.update({ notifications: e.target.checked }))}
+            />
+            {t('notificationsSetting')}
+          </label>
+          <p className="muted small">{t('notificationsHint')}</p>
           <label className="check">
             <input
               type="checkbox"

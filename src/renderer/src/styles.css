@@ -358,3 +358,70 @@ textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); 
 .column-head .chip { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
 .column-head .btn { flex-shrink: 0; }
 .column-head .grow { flex: 1 1 auto; }
+
+/* ---- Phase 4 ---- */
+select {
+  font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
+}
+.mono { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 12.5px; }
+.modal.wide { width: min(900px, calc(100% - 32px)); }
+.tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.tool-btn {
+  display: flex; align-items: center; gap: 7px; padding: 7px 9px; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; text-align: left; font-size: 13px; min-width: 0;
+}
+.tool-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-btn:hover { border-color: #444b55; background: #2a2f36; }
+.tool-btn.wide { grid-column: 1 / -1; }
+
+/* usage */
+.usage-table, .mcp-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.usage-table th, .mcp-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 600; padding: 6px; }
+.usage-table td, .mcp-table td { padding: 8px 6px; border-top: 1px solid var(--border); vertical-align: top; }
+.usage-table .tab-color { display: inline-block; vertical-align: middle; }
+.usage-table .cost { font-weight: 600; }
+.usage-table tr.total td { border-top: 2px solid var(--border); font-weight: 600; }
+.mcp-table td.mono { max-width: 300px; }
+.mcp-cell {
+  width: 30px; height: 26px; border-radius: 6px; border: 1px dashed var(--border); background: none; color: var(--muted); cursor: pointer;
+}
+.mcp-cell.on { border-style: solid; border-color: #3fb95066; background: #3fb9501a; color: var(--ok); }
+.mcp-cell:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+.mcp-cell:disabled { opacity: .35; cursor: default; }
+.mcp-form { margin-top: 14px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.mcp-form .row { flex-wrap: wrap; }
+
+/* instructions */
+.ctx-files { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.ctx-file {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--border); border-top: 3px solid var(--agent);
+}
+.ctx-file.on { outline: 1px solid var(--agent); }
+.ctx-file:disabled { opacity: .5; cursor: default; }
+.ctx-editor { margin-bottom: 10px; line-height: 1.5; }
+.modal .row { flex-wrap: wrap; }
+
+/* pipeline */
+.pipeline { background: var(--bg); }
+.pipeline-setup { max-width: 760px; width: 100%; margin: 0 auto; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.pipeline-setup h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 8px 0 0; }
+.step-edit { border: 1px solid var(--border); border-left: 3px solid var(--agent); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; background: var(--panel); }
+.step-n {
+  width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  background: var(--agent, var(--accent)); color: #fff; font-size: 12px; font-weight: 700;
+}
+.steps { flex: 1; overflow-y: auto; padding: 16px 0; }
+.pipeline-task { margin-bottom: 10px; }
+.step { max-width: 900px; margin: 0 auto 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); overflow: hidden; }
+.step.waiting { opacity: .55; }
+.step.running { border-color: var(--agent); }
+.step.error { border-color: #f8514966; }
+.step-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.step .messages { max-height: 420px; padding: 10px 0 4px; background: var(--bg); }
+.step .msg { padding: 0 14px; }
+.step .msg.user { display: none; }
+.msg-error-inline { color: var(--bad); }
+.pipeline-bar { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-top: 1px solid var(--border); background: var(--panel); }
+
+.history { overflow-y: auto; flex: 1 1 0; min-height: 140px; }

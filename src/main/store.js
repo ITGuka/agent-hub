@@ -8,6 +8,17 @@ const DEFAULTS = {
   agentArgs: { claude: '', codex: '', gemini: '' },
   chatAutoApprove: false,
   isolateChats: false,
+  notifications: true,
+  pipelines: [
+    {
+      name: 'Plan → Code → Review',
+      steps: [
+        { agent: 'gemini', instruction: 'Make a short, concrete implementation plan for the task. Do not write code.' },
+        { agent: 'claude', instruction: 'Implement the task following the plan from the previous step.' },
+        { agent: 'codex', instruction: 'Review the changes made in the previous step. List bugs and problems, most severe first.' }
+      ]
+    }
+  ],
   stats: { comparisons: 0, wins: {} },
   templates: [
     { name: 'Code review', text: 'Review the uncommitted changes in this project. List bugs and risky spots, most severe first.' },
@@ -45,7 +56,7 @@ export function publicSettings() {
 
 export function update(patch) {
   const s = load()
-  for (const key of ['language', 'agentArgs', 'chatAutoApprove', 'isolateChats', 'templates', 'stats']) if (key in patch) s[key] = patch[key]
+  for (const key of ['language', 'agentArgs', 'chatAutoApprove', 'isolateChats', 'notifications', 'pipelines', 'templates', 'stats']) if (key in patch) s[key] = patch[key]
   save()
   return publicSettings()
 }

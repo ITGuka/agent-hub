@@ -15,6 +15,7 @@ import * as sessions from './sessions'
 import * as git from './git'
 import * as mcp from './mcp'
 import * as context from './context'
+import * as team from './team'
 
 const isWin = process.platform === 'win32'
 const terms = new Map() // id -> IPty
@@ -204,6 +205,10 @@ ipcMain.handle('git:createWorktree', (_e, project, agent) => git.createWorktree(
 ipcMain.handle('git:diff', (_e, dir, base) => git.diff(dir, base))
 ipcMain.handle('git:apply', (_e, wt) => git.applyToProject(wt))
 ipcMain.handle('git:removeWorktree', (_e, wt) => git.removeWorktree(wt))
+ipcMain.handle('team:check', (_e, id, cwd, command) => team.runCheck(id, cwd, command))
+ipcMain.handle('team:stopCheck', (_e, id) => team.stopCheck(id))
+ipcMain.handle('team:readFile', (_e, cwd, rel) => team.readFile(cwd, rel))
+ipcMain.handle('team:writeFile', (_e, cwd, rel, text) => team.writeFile(cwd, rel, text))
 ipcMain.handle('usage:get', () => sessions.usage())
 ipcMain.handle('mcp:list', () => mcp.list())
 ipcMain.handle('mcp:add', (_e, agent, def) => mcp.add(agent, def))

@@ -84,8 +84,13 @@ export function toMarkdown(s, agentName) {
   for (const m of s.messages || []) {
     if (m.role === 'user') {
       lines.push('## 🧑 User', '', m.text, '')
+    } else if (m.role === 'gate') {
+      lines.push(`> ✋ **${m.label}** — ${m.status}${m.feedback ? ': ' + m.feedback : ''}`, '')
+    } else if (m.role === 'note' || m.role === 'check') {
+      lines.push(`> ${m.text || ''}`, '')
+      if (m.output) lines.push('```', m.output.slice(-3000), '```', '')
     } else {
-      lines.push(`## 🤖 ${agentName}`, '')
+      lines.push(`## 🤖 ${m.agentName || agentName}${m.stepLabel ? ' · ' + m.stepLabel : ''}`, '')
       for (const p of m.parts || []) {
         if (p.type === 'text') lines.push(p.text, '')
         else lines.push(`> **${p.name}** \`${(p.detail || '').split('\n')[0]}\``, '')
@@ -106,7 +111,8 @@ export function usage() {
   for (const s of readAll()) {
     for (const m of s.messages || []) {
       if (m.role !== 'assistant' || (!m.cost && !m.tokens)) continue
-      const a = (out[s.agent] = out[s.agent] || {})
+      const agent = m.agent || s.agent // team chats record the agent per message
+      const a = (out[agent] = out[agent] || {})
       for (const [r, from] of Object.entries(ranges)) {
         if ((m.ts || s.updatedAt) < from) continue
         const x = (a[r] = a[r] || { cost: 0, tokens: 0, turns: 0 })

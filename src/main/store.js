@@ -56,7 +56,7 @@ export function publicSettings() {
 
 export function update(patch) {
   const s = load()
-  for (const key of ['language', 'agentArgs', 'chatAutoApprove', 'isolateChats', 'notifications', 'pipelines', 'templates', 'stats']) if (key in patch) s[key] = patch[key]
+  for (const key of ['language', 'agentArgs', 'chatAutoApprove', 'isolateChats', 'notifications', 'pipelines', 'team', 'templates', 'stats']) if (key in patch) s[key] = patch[key]
   save()
   return publicSettings()
 }

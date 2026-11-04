@@ -4,6 +4,7 @@ import TerminalView from './components/TerminalView'
 import ChatView from './components/ChatView'
 import CompareView from './components/CompareView'
 import PipelineView from './components/PipelineView'
+import TeamView from './components/TeamView'
 import { UsageModal, McpModal, ContextModal } from './components/ToolsModals'
 import Settings from './components/Settings'
 import { useUpdate, UpdateCard } from './components/Update'
@@ -108,6 +109,17 @@ export default function App() {
     setActiveKey(key)
   }
 
+  const openTeam = (session = null) => {
+    if (session) {
+      const existing = tabs.find((t) => t.type === 'team' && t.sessionId === session.id)
+      if (existing) return setActiveKey(existing.key)
+    }
+    const key = tabSeq++
+    const cwd = session ? session.project || session.cwd : project
+    setTabs((ts) => [...ts, { key, type: 'team', cwd, sessionId: session?.id || null, title: session?.title || '👥 ' + baseName(cwd || '') }])
+    setActiveKey(key)
+  }
+
   const openPipeline = () => {
     const key = tabSeq++
     setTabs((ts) => [...ts, { key, type: 'pipeline', cwd: project, title: '⛓ ' + baseName(project || '') }])
@@ -161,6 +173,7 @@ export default function App() {
           openChat={openChat}
           openCompare={openCompare}
           openPipeline={openPipeline}
+          openTeam={openTeam}
           openTool={setTool}
           install={install}
           openSettings={() => setShowSettings(true)}
@@ -183,7 +196,18 @@ export default function App() {
           )}
           <div className={'terms layout-' + Math.min(layout, Math.max(tabs.length, 1))}>
             {tabs.map((tab) =>
-              tab.type === 'pipeline' ? (
+              tab.type === 'team' ? (
+                <TeamView
+                  key={tab.key}
+                  tab={tab}
+                  {...paneProps(tab)}
+                  agents={agents}
+                  settings={settings}
+                  setSettings={setSettings}
+                  onSaved={refreshSessions}
+                  onTitle={(title, sessionId) => patchTab(tab.key, { sessionId, ...(title ? { title } : {}) })}
+                />
+              ) : tab.type === 'pipeline' ? (
                 <PipelineView
                   key={tab.key}
                   tab={tab}
@@ -237,6 +261,7 @@ export default function App() {
                 openTab={openTab}
                 openChat={openChat}
                 openCompare={openCompare}
+                openTeam={openTeam}
                 install={install}
               />
             )}
@@ -292,7 +317,7 @@ function timeAgo(ts, lang) {
   return new Date(ts).toLocaleDateString()
 }
 
-function History({ sessions, agents, project, openChat, refreshSessions, lang }) {
+function History({ sessions, agents, project, openChat, openTeam, refreshSessions, lang }) {
   const t = useT()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState(null)
@@ -326,9 +351,9 @@ function History({ sessions, agents, project, openChat, refreshSessions, lang })
         <div
           key={s.id}
           className="history-item"
-          style={{ '--agent': agents[s.agent]?.color }}
-          onClick={() => openChat(s.agent, s)}
-          title={`${agents[s.agent]?.name} · ${s.cwd}`}
+          style={{ '--agent': agents[s.agent]?.color || '#c9a227' }}
+          onClick={() => (s.agent === 'team' ? openTeam(s) : openChat(s.agent, s))}
+          title={`${agents[s.agent]?.name || '👥'} · ${s.project || s.cwd}`}
         >
           <span className="tab-color" />
           <div className="grow">
@@ -346,7 +371,7 @@ function History({ sessions, agents, project, openChat, refreshSessions, lang })
 }
 
 function Sidebar(props) {
-  const { settings, setSettings, agents, detect, project, setProject, openTab, openChat, openCompare, openPipeline, openTool, install, openSettings, update } = props
+  const { settings, setSettings, agents, detect, project, setProject, openTab, openChat, openCompare, openPipeline, openTeam, openTool, install, openSettings, update } = props
   const t = useT()
   const pick = async () => {
     const r = await window.api.projects.pick()
@@ -460,6 +485,9 @@ function Sidebar(props) {
       <section>
         <h3>{t('tools')}</h3>
         <div className="tools-grid">
+          <button className="tool-btn wide team-btn" onClick={() => openTeam()} title={t('teamSub')}>
+            👥 <span>{t('teamChat')}</span>
+          </button>
           <button className="tool-btn" onClick={openCompare} title={t('compareSub')}>
             ⚖ <span>{t('compare')}</span>
           </button>
@@ -510,7 +538,7 @@ function TabBar({ tabs, agents, activeKey, visibleKeys, setActiveKey, closeTab, 
             title={tab.cwd || ''}
           >
             <span className="tab-icon">
-              {tab.type === 'chat' ? '💬' : tab.type === 'compare' ? '⚖' : tab.type === 'pipeline' ? '⛓' : '›_'}
+              {tab.type === 'chat' ? '💬' : tab.type === 'compare' ? '⚖' : tab.type === 'pipeline' ? '⛓' : tab.type === 'team' ? '👥' : '›_'}
             </span>
             <span className="ellipsis">{tab.title}</span>
             <button
@@ -541,7 +569,7 @@ function TabBar({ tabs, agents, activeKey, visibleKeys, setActiveKey, closeTab, 
   )
 }
 
-function Welcome({ agents, detect, project, openTab, openChat, openCompare, install }) {
+function Welcome({ agents, detect, project, openTab, openChat, openCompare, openTeam, install }) {
   const t = useT()
   return (
     <div className="welcome">
@@ -578,6 +606,9 @@ function Welcome({ agents, detect, project, openTab, openChat, openCompare, inst
           )
         })}
       </div>
+      <button className="btn primary team-hero" onClick={() => openTeam()}>
+        👥 {t('teamChat')} — <span>{t('teamSub')}</span>
+      </button>
       <button className="btn compare-btn wide" onClick={openCompare}>
         ⚖ {t('compareAll')} — <span className="muted">{t('compareSub')}</span>
       </button>

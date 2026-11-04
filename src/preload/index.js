@@ -37,6 +37,12 @@ contextBridge.exposeInMainWorld('api', {
     attention: () => ipcRenderer.invoke('app:attention')
   },
   usage: { get: () => ipcRenderer.invoke('usage:get') },
+  team: {
+    check: (id, cwd, command) => ipcRenderer.invoke('team:check', id, cwd, command),
+    stopCheck: (id) => ipcRenderer.invoke('team:stopCheck', id),
+    readFile: (cwd, rel) => ipcRenderer.invoke('team:readFile', cwd, rel),
+    writeFile: (cwd, rel, text) => ipcRenderer.invoke('team:writeFile', cwd, rel, text)
+  },
   mcp: {
     list: () => ipcRenderer.invoke('mcp:list'),
     add: (agent, def) => ipcRenderer.invoke('mcp:add', agent, def),

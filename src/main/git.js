@@ -4,9 +4,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { getEnv } from './env'
 
-function git(cwd, args, input) {
+function git(cwd, args, input, extraEnv) {
   return new Promise(async (resolve) => {
-    const env = await getEnv()
+    const env = { ...(await getEnv()), ...(extraEnv || {}) }
     const child = execFile(
       'git',
       args,
@@ -49,32 +49,47 @@ export async function createWorktree(project, agent) {
   return { path: dir, branch, base, root: i.root }
 }
 
-// Unified diff of everything changed in `dir` (tracked + untracked) against `base`.
-export async function diff(dir, base = 'HEAD') {
+// Run `fn` with a throwaway copy of the git index, so marking untracked files
+// (git add -N) never changes the real index the user or agents see.
+async function withTempIndex(dir, fn) {
+  const real = (await git(dir, ['rev-parse', '--path-format=absolute', '--git-path', 'index'])).out.trim()
+  const tmp = path.join(os.tmpdir(), `agenthub-index-${process.pid}-${Date.now()}`)
+  try {
+    if (real && fs.existsSync(real)) fs.copyFileSync(real, tmp)
+    return await fn({ GIT_INDEX_FILE: tmp })
+  } finally {
+    fs.rmSync(tmp, { force: true })
+  }
+}
+
+// Unified diff of everything changed in `dir` (tracked + untracked, respecting
+// .gitignore) against `base`.
+export async function diff(dir, base = 'HEAD', binary = false) {
   const i = await info(dir)
   if (!i.repo) return { ok: false, error: 'Not a git repository' }
   if (!i.hasCommit) return { ok: false, error: 'The repository has no commits yet' }
-  // Mark untracked files intent-to-add so they appear in the diff (index only, no content staged).
-  await git(dir, ['add', '-A', '-N'])
-  const patch = await git(dir, ['diff', base, '--no-color', '--no-ext-diff'])
-  const stat = await git(dir, ['diff', base, '--numstat'])
-  const files = stat.out
-    .trim()
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => {
-      const [add, del, ...p] = l.split('\t')
-      return { path: p.join('\t'), add: add === '-' ? 0 : +add, del: del === '-' ? 0 : +del }
-    })
-  return { ok: patch.ok, error: patch.ok ? null : patch.err, patch: patch.out, files }
+  return withTempIndex(dir, async (env) => {
+    await git(dir, ['add', '-A', '-N'], null, env)
+    const patch = await git(dir, ['diff', base, '--no-color', '--no-ext-diff', ...(binary ? ['--binary'] : [])], null, env)
+    const stat = await git(dir, ['diff', base, '--numstat'], null, env)
+    const files = stat.out
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => {
+        const [add, del, ...p] = l.split('\t')
+        return { path: p.join('\t'), add: add === '-' ? 0 : +add, del: del === '-' ? 0 : +del }
+      })
+    return { ok: patch.ok, error: patch.ok ? null : patch.err, patch: patch.out, files }
+  })
 }
 
 // Copy a worktree's changes into the main project working tree (no commit).
 export async function applyToProject(wt) {
-  const d = await diff(wt.path, wt.base)
+  const d = await diff(wt.path, wt.base, true)
   if (!d.ok) return d
   if (!d.patch.trim()) return { ok: false, error: 'No changes' }
-  const bin = await git(wt.path, ['diff', wt.base, '--binary', '--no-color', '--no-ext-diff'])
+  const bin = { out: d.patch }
   // Plain apply leaves the changes unstaged; fall back to a 3-way merge if the
   // project changed meanwhile (that one stages the result).
   let r = await git(wt.root, ['apply', '--whitespace=nowarn', '-'], bin.out)
